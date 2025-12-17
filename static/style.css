@@ -268,85 +268,105 @@ body {
     transition: top 0.2s ease, height 0.2s ease;
 }
 
+.event-block.editing {
+    overflow: visible !important;
+    z-index: 100 !important;
+}
+
 .event-block:hover {
     opacity: 1;
     z-index: 15;
 }
 
 .event-block-content {
-    padding: 4px 6px;
+    padding: 6px 4px 2px 4px;
+    /* More top padding for standard events */
     height: 100%;
     overflow: hidden;
     color: white;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: flex-start;
+    /* Top align by default */
+    line-height: 1.1;
 }
 
-.event-block-time {
-    font-size: 0.7rem;
-    font-weight: 500;
-    opacity: 0.9;
-    margin-bottom: 2px;
+.event-block.small-event .event-block-content {
+    align-items: center;
+    /* Center align for small events */
+    padding: 0 4px;
+    /* Minimal padding */
 }
 
-.event-block-title {
-    font-size: 0.8rem;
-    font-weight: 500;
-    line-height: 1.2;
+.event-title {
+    font-weight: 600;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    flex: 0 1 auto;
+    /* Allow shrinking */
 }
 
+.event-time {
+    white-space: nowrap;
+    opacity: 0.9;
+    font-weight: 400;
+    flex: 0 0 auto;
+    /* Do not shrink */
+}
+
+/* Old separate elements hidden */
+.event-block-time,
+.event-block-title,
 .event-block-tag {
-    font-size: 0.65rem;
-    opacity: 0.8;
-    margin-top: 2px;
-}
-
-/* Hide text in very short events */
-.event-block[style*="height: 5px"] .event-block-content,
-.event-block[style*="height: 6px"] .event-block-content,
-.event-block[style*="height: 7px"] .event-block-content,
-.event-block[style*="height: 8px"] .event-block-content,
-.event-block[style*="height: 9px"] .event-block-content,
-.event-block[style*="height: 10px"] .event-block-content,
-.event-block[style*="height: 11px"] .event-block-content,
-.event-block[style*="height: 12px"] .event-block-content,
-.event-block[style*="height: 13px"] .event-block-content,
-.event-block[style*="height: 14px"] .event-block-content,
-.event-block[style*="height: 15px"] .event-block-content,
-.event-block[style*="height: 16px"] .event-block-content,
-.event-block[style*="height: 17px"] .event-block-content,
-.event-block[style*="height: 18px"] .event-block-content,
-.event-block[style*="height: 19px"] .event-block-content {
     display: none;
 }
+
+/* Removed complex hide rules in favor of JS adaptive visibility */
 
 /* Event Edit Overlay */
 .event-edit-overlay {
     position: absolute;
     top: 0;
     left: 0;
-    right: 0;
-    bottom: 0;
+    width: 200px;
+    /* Fixed width for the popout */
+    min-width: 100%;
+    min-height: 100px;
+    /* Minimum height for usability */
     background: var(--bg-tertiary);
     padding: 8px;
     z-index: 20;
     overflow-y: auto;
     border: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    border-radius: 4px;
 }
 
 .event-edit-form input,
 .event-edit-form select,
 .event-edit-form textarea {
     width: 100%;
-    padding: 4px 6px;
-    margin-bottom: 4px;
+    margin-bottom: 8px;
+    padding: 4px;
     background: var(--bg-primary);
     border: 1px solid var(--border);
     border-radius: 4px;
     color: var(--text-primary);
-    font-size: 0.75rem;
+    font-size: 0.9rem;
     font-family: inherit;
+}
+
+.form-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 8px;
+}
+
+.form-row input {
+    margin-bottom: 0;
+    /* Remove bottom margin inside row */
+    flex: 1;
 }
 
 .event-edit-form textarea {

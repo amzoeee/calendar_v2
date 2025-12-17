@@ -14,11 +14,6 @@
             <div class="navigation">
                 <a href="{{ url_for('daily_view', date=prev_day) }}" class="nav-btn">← Prev</a>
                 <h1 class="date-title">{{ display_date }}</h1>
-                <div class="zoom-controls">
-                    <button type="button" class="nav-btn" onclick="modifyZoom(-1)" title="Zoom Out (-)">−</button>
-                    <button type="button" class="nav-btn" onclick="resetZoom()" title="Reset Zoom (0)">100%</button>
-                    <button type="button" class="nav-btn" onclick="modifyZoom(1)" title="Zoom In (+)">+</button>
-                </div>
                 <a href="{{ url_for('index') }}" class="nav-btn">Today</a>
                 <a href="{{ url_for('daily_view', date=next_day) }}" class="nav-btn">Next →</a>
             </div>
@@ -83,7 +78,15 @@
             </section>
 
             <section class="timeline-section">
-                <h2>Timeline</h2>
+                <div class="timeline-header"
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <h2 style="margin-bottom: 0;">Timeline</h2>
+                    <div class="zoom-controls">
+                        <button type="button" class="nav-btn" onclick="modifyZoom(-1)" title="Zoom Out (-)">−</button>
+                        <button type="button" class="nav-btn" onclick="resetZoom()" title="Reset Zoom (0)">100%</button>
+                        <button type="button" class="nav-btn" onclick="modifyZoom(1)" title="Zoom In (+)">+</button>
+                    </div>
+                </div>
 
                 <div class="timeline-container" id="timeline-container">
                     <div class="time-labels">
@@ -122,14 +125,12 @@
                                             background-color: {{ event.tag_color }};
                                             border-left-color: {{ event.tag_color }};"
                             data-start-minutes="{{ event.top_position }}" data-duration-minutes="{{ event.height }}"
-                            onclick="toggleEventEdit({{ event.id }})">
+                            data-title="{{ event.title }}" data-start-time="{{ event.start_time }}"
+                            data-end-time="{{ event.end_time }}" onclick="toggleEventEdit({{ event.id }})">
 
                             <div class="event-block-content">
-                                <div class="event-block-time">{{ event.start_time }}</div>
-                                <div class="event-block-title">{{ event.title }}</div>
-                                {% if event.tag %}
-                                <div class="event-block-tag">{{ event.tag }}</div>
-                                {% endif %}
+                                <span class="event-title">{{ event.title }}</span>
+                                <span class="event-time">, {{ event.start_time }} - {{ event.end_time }}</span>
                             </div>
 
                             <div class="event-edit-overlay" id="edit-overlay-{{ event.id }}" style="display: none;">
@@ -149,15 +150,19 @@
                                         {% endfor %}
                                     </select>
 
-                                    <input type="date" class="edit-start-date"
-                                        value="{{ event.start_datetime_local.split('T')[0] }}" required>
-                                    <input type="time" class="edit-start-time"
-                                        value="{{ event.start_datetime_local.split('T')[1] }}" required>
+                                    <div class="form-row">
+                                        <input type="date" class="edit-start-date"
+                                            value="{{ event.start_datetime_local.split('T')[0] }}" required>
+                                        <input type="time" class="edit-start-time"
+                                            value="{{ event.start_datetime_local.split('T')[1] }}" required>
+                                    </div>
 
-                                    <input type="date" class="edit-end-date"
-                                        value="{{ event.end_datetime_local.split('T')[0] }}" required>
-                                    <input type="time" class="edit-end-time"
-                                        value="{{ event.end_datetime_local.split('T')[1] }}" required>
+                                    <div class="form-row">
+                                        <input type="date" class="edit-end-date"
+                                            value="{{ event.end_datetime_local.split('T')[0] }}" required>
+                                        <input type="time" class="edit-end-time"
+                                            value="{{ event.end_datetime_local.split('T')[1] }}" required>
+                                    </div>
 
                                     <textarea name="description" rows="2"
                                         placeholder="Description">{{ event.description or '' }}</textarea>
@@ -188,11 +193,31 @@
 
     <script>
         function toggleEventEdit(eventId) {
+            // Close all other overlays
+            document.querySelectorAll('.event-block.editing').forEach(el => {
+                if (el.querySelector(`#edit-overlay-${eventId}`) === null) {
+                    el.classList.remove('editing');
+                    const otherOverlay = el.querySelector('.event-edit-overlay');
+                    if (otherOverlay) otherOverlay.style.display = 'none';
+                }
+            });
+
             const overlay = document.getElementById(`edit-overlay-${eventId}`);
+            const eventBlock = overlay.closest('.event-block');
+
             if (overlay) {
-                overlay.style.display = overlay.style.display === 'none' ? 'block' : 'none';
+                const isHidden = overlay.style.display === 'none';
+                overlay.style.display = isHidden ? 'block' : 'none';
+
+                if (isHidden) {
+                    eventBlock.classList.add('editing');
+                } else {
+                    eventBlock.classList.remove('editing');
+                }
             }
         }
+
+
 
         function prepareEditForm(form) {
             const startDate = form.querySelector('.edit-start-date').value;
@@ -284,8 +309,34 @@
                 const durationMinutes = parseInt(el.dataset.durationMinutes);
 
                 if (!isNaN(startMinutes) && !isNaN(durationMinutes)) {
-                    el.style.top = `${(startMinutes / 60) * zoomLevel}px`;
-                    el.style.height = `${(durationMinutes / 60) * zoomLevel}px`;
+                    const top = (startMinutes / 60) * zoomLevel;
+                    const height = (durationMinutes / 60) * zoomLevel;
+
+                    el.style.top = `${top}px`;
+                    el.style.height = `${height}px`;
+
+                    // Handle layout for small vs large events
+                    if (height < 35) {
+                        el.classList.add('small-event');
+                    } else {
+                        el.classList.remove('small-event');
+                    }
+
+                    // Dynamic text logic
+                    const timeSpan = el.querySelector('.event-time');
+                    const startTime = el.dataset.startTime;
+                    const endTime = el.dataset.endTime;
+
+                    if (timeSpan) {
+                        // Threshold: if height is less than 30px, show only start time
+                        if (height < 30) {
+                            timeSpan.textContent = `, ${startTime}`;
+                            timeSpan.style.display = 'inline';
+                        } else {
+                            timeSpan.textContent = `, ${startTime} - ${endTime}`;
+                            timeSpan.style.display = 'inline';
+                        }
+                    }
                 }
             });
 
@@ -294,9 +345,7 @@
         }
 
         // Initialize zoom
-        if (zoomLevel !== 60) {
-            updateZoom(); // Apply saved zoom on load
-        }
+        updateZoom(); // Apply saved zoom or default on load to fix text layout
 
         // Helper functions for buttons and keys
         window.modifyZoom = function (direction) {

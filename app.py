@@ -156,7 +156,7 @@ def daily_view(date):
         duration = end_minutes - start_minutes
         
         event_dict['top_position'] = start_minutes
-        event_dict['height'] = max(duration, 15)  # Minimum 15 minutes height
+        event_dict['height'] = duration
         event_dict['duration_minutes'] = duration
         
         # Format display times
