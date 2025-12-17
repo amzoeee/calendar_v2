@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar - {{ display_date }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <header class="calendar-header">
+            <div class="navigation">
+                <a href="{{ url_for('daily_view', date=prev_day) }}" class="nav-btn">← Prev</a>
+                <h1 class="date-title">{{ display_date }}</h1>
+                <a href="{{ url_for('index') }}" class="nav-btn">Today</a>
+                <a href="{{ url_for('daily_view', date=next_day) }}" class="nav-btn">Next →</a>
+            </div>
+        </header>
+
+        <main class="calendar-content">
+            <section class="add-event-section">
+                <h2>Add Event</h2>
+                <form action="{{ url_for('add_event') }}" method="POST" class="event-form" id="add-event-form">
+                    <input type="hidden" name="date" value="{{ date }}">
+                    <input type="hidden" name="start_datetime" id="start_datetime_hidden">
+                    <input type="hidden" name="end_datetime" id="end_datetime_hidden">
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="title">Title</label>
+                            <input type="text" id="title" name="title" placeholder="Event name">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="tag">Tag</label>
+                            <select id="tag" name="tag">
+                                <option value="">None</option>
+                                {% for tag in tags %}
+                                <option value="{{ tag.name }}">{{ tag.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="start_date">Start Date</label>
+                            <input type="date" id="start_date" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="start_time">Start Time</label>
+                            <input type="time" id="start_time" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="end_date">End Date</label>
+                            <input type="date" id="end_date" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="end_time">End Time</label>
+                            <input type="time" id="end_time" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">Description</label>
+                        <textarea id="description" name="description" rows="2" placeholder="Optional"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Add Event</button>
+                </form>
+            </section>
+
+            <section class="timeline-section">
+                <h2>Timeline</h2>
+
+                <div class="timeline-container" id="timeline-container">
+                    <div class="time-labels">
+                        {% for hour in range(24) %}
+                        {% if hour == 0 %}
+                        <div class="time-label" style="top: {{ hour * 60 }}px;">12 AM</div>
+                        {% elif hour < 12 %} <div class="time-label" style="top: {{ hour * 60 }}px;">{{ hour }} AM
+                    </div>
+                    {% elif hour == 12 %}
+                    <div class="time-label" style="top: {{ hour * 60 }}px;">12 PM</div>
+                    {% else %}
+                    <div class="time-label" style="top: {{ hour * 60 }}px;">{{ hour - 12 }} PM</div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+
+                <div class="timeline-grid">
+                    {% for hour in range(24) %}
+                    <div class="hour-line" style="top: {{ hour * 60 }}px;"></div>
+                    <div class="half-hour-line" style="top: {{ hour * 60 + 30 }}px;"></div>
+                    {% endfor %}
+
+                    <div class="events-container">
+                        {% for event in events %}
+                        {% set width_percent = (100 / event.get('overlap_total', 1)) %}
+                        {% set left_percent = (event.get('overlap_column', 0) * width_percent) %}
+
+                        <div class="event-block" style="top: {{ event.top_position }}px; 
+                                            height: {{ event.height }}px;
+                                            left: {{ left_percent }}%;
+                                            width: calc({{ width_percent }}% - 2px);
+                                            background-color: {{ event.tag_color }};
+                                            border-left-color: {{ event.tag_color }};"
+                            onclick="toggleEventEdit({{ event.id }})">
+
+                            <div class="event-block-content">
+                                <div class="event-block-time">{{ event.start_time }}</div>
+                                <div class="event-block-title">{{ event.title }}</div>
+                                {% if event.tag %}
+                                <div class="event-block-tag">{{ event.tag }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="event-edit-overlay" id="edit-overlay-{{ event.id }}" style="display: none;">
+                                <form action="{{ url_for('update_event', event_id=event.id) }}" method="POST"
+                                    class="event-edit-form" onclick="event.stopPropagation();"
+                                    onsubmit="return prepareEditForm(this);">
+                                    <input type="hidden" name="date" value="{{ date }}">
+                                    <input type="hidden" name="start_datetime" class="edit-start-datetime-hidden">
+                                    <input type="hidden" name="end_datetime" class="edit-end-datetime-hidden">
+
+                                    <input type="text" name="title" value="{{ event.title }}" placeholder="Title">
+                                    <select name="tag">
+                                        <option value="">None</option>
+                                        {% for tag in tags %}
+                                        <option value="{{ tag.name }}" {% if tag.name==event.tag %}selected{% endif %}>
+                                            {{ tag.name }}</option>
+                                        {% endfor %}
+                                    </select>
+
+                                    <input type="date" class="edit-start-date"
+                                        value="{{ event.start_datetime_local.split('T')[0] }}" required>
+                                    <input type="time" class="edit-start-time"
+                                        value="{{ event.start_datetime_local.split('T')[1] }}" required>
+
+                                    <input type="date" class="edit-end-date"
+                                        value="{{ event.end_datetime_local.split('T')[0] }}" required>
+                                    <input type="time" class="edit-end-time"
+                                        value="{{ event.end_datetime_local.split('T')[1] }}" required>
+
+                                    <textarea name="description" rows="2"
+                                        placeholder="Description">{{ event.description or '' }}</textarea>
+
+                                    <div class="edit-actions">
+                                        <button type="submit" class="btn btn-sm">Save</button>
+                                        <button type="button"
+                                            onclick="event.stopPropagation(); toggleEventEdit({{ event.id }})"
+                                            class="btn btn-sm">Cancel</button>
+                                    </div>
+                                </form>
+                                <form action="{{ url_for('delete_event', event_id=event.id) }}" method="POST"
+                                    onclick="event.stopPropagation();"
+                                    onsubmit="event.stopPropagation(); return confirm('Delete?');">
+                                    <input type="hidden" name="date" value="{{ date }}">
+                                    <button type="submit" class="btn btn-sm btn-danger"
+                                        style="width: 100%; margin-top: 4px;">Delete</button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+    </div>
+    </section>
+    </main>
+    </div>
+
+    <script>
+        function toggleEventEdit(eventId) {
+            const overlay = document.getElementById(`edit-overlay-${eventId}`);
+            if (overlay) {
+                overlay.style.display = overlay.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+
+        function prepareEditForm(form) {
+            const startDate = form.querySelector('.edit-start-date').value;
+            const startTime = form.querySelector('.edit-start-time').value;
+            const endDate = form.querySelector('.edit-end-date').value;
+            const endTime = form.querySelector('.edit-end-time').value;
+
+            form.querySelector('.edit-start-datetime-hidden').value = `${startDate}T${startTime}`;
+            form.querySelector('.edit-end-datetime-hidden').value = `${endDate}T${endTime}`;
+
+            return true;
+        }
+
+        window.addEventListener('DOMContentLoaded', function () {
+            const dateStr = '{{ date }}';
+
+            document.getElementById('start_date').value = dateStr;
+            document.getElementById('end_date').value = dateStr;
+
+            const savedEndTime = localStorage.getItem('lastEventEndTime');
+            const savedEndDate = localStorage.getItem('lastEventEndDate');
+
+            if (savedEndTime && savedEndDate === dateStr) {
+                document.getElementById('start_time').value = savedEndTime;
+                const [hours, minutes] = savedEndTime.split(':');
+                const endHour = (parseInt(hours) + 1) % 24;
+                document.getElementById('end_time').value = `${String(endHour).padStart(2, '0')}:${minutes}`;
+            } else {
+                const now = new Date();
+                const roundedMinutes = Math.ceil(now.getMinutes() / 15) * 15;
+                const currentHour = roundedMinutes === 60 ? now.getHours() + 1 : now.getHours();
+                const currentMinutes = roundedMinutes === 60 ? 0 : roundedMinutes;
+
+                const startTime = `${String(currentHour).padStart(2, '0')}:${String(currentMinutes).padStart(2, '0')}`;
+                const endTime = `${String((currentHour + 1) % 24).padStart(2, '0')}:${String(currentMinutes).padStart(2, '0')}`;
+
+                document.getElementById('start_time').value = startTime;
+                document.getElementById('end_time').value = endTime;
+            }
+
+            document.getElementById('add-event-form').addEventListener('submit', function (e) {
+                const startDate = document.getElementById('start_date').value;
+                const startTime = document.getElementById('start_time').value;
+                const endDate = document.getElementById('end_date').value;
+                const endTime = document.getElementById('end_time').value;
+
+                document.getElementById('start_datetime_hidden').value = `${startDate}T${startTime}`;
+                document.getElementById('end_datetime_hidden').value = `${endDate}T${endTime}`;
+
+                localStorage.setItem('lastEventEndTime', endTime);
+                localStorage.setItem('lastEventEndDate', endDate);
+            });
+        });
+    </script>
+</body>
+
+</html>

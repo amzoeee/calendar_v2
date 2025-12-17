@@ -1,0 +1,34 @@
+{
+    "tags": [
+        {
+            "name": "Work",
+            "color": "#6366f1",
+            "order": 1
+        },
+        {
+            "name": "Personal",
+            "color": "#ec4899",
+            "order": 2
+        },
+        {
+            "name": "Meeting",
+            "color": "#10b981",
+            "order": 3
+        },
+        {
+            "name": "Project",
+            "color": "#f59e0b",
+            "order": 4
+        },
+        {
+            "name": "Exercise",
+            "color": "#8b5cf6",
+            "order": 5
+        },
+        {
+            "name": "Social",
+            "color": "#06b6d4",
+            "order": 6
+        }
+    ]
+}
