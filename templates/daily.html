@@ -386,6 +386,79 @@
                 }
             }
         }, true); // Capture phase is CRITICAL for overriding browser shortcuts
+
+        // Scroll Position Restoration
+        function saveScrollPosition() {
+            const container = document.getElementById('timeline-container');
+            if (container) {
+                localStorage.setItem('calendarScrollPos', container.scrollTop);
+                localStorage.setItem('calendarWindowScroll', window.scrollY); // Save window scroll
+                console.log('Saved positions - Container:', container.scrollTop, 'Window:', window.scrollY);
+            }
+        }
+
+        function restoreScrollPosition() {
+            // Prevent browser from strictly restoring scroll (which might be 0) controls
+            if ('scrollRestoration' in history) {
+                history.scrollRestoration = 'manual';
+            }
+
+            const savedPos = localStorage.getItem('calendarScrollPos');
+            const savedWindowPos = localStorage.getItem('calendarWindowScroll');
+            const container = document.getElementById('timeline-container');
+
+            // 1. Restore Window Scroll first
+            if (savedWindowPos) {
+                window.scrollTo(0, parseInt(savedWindowPos));
+                console.log('Restored window scroll:', savedWindowPos);
+                localStorage.removeItem('calendarWindowScroll');
+            }
+
+            if (savedPos && container) {
+                // Force zoom update to ensure correct height before we try to scroll
+                if (typeof updateZoom === 'function') {
+                    updateZoom();
+                }
+
+                const rawTarget = parseInt(savedPos);
+
+                // Retry loop to ensure layout is ready
+                const attemptScroll = (retries) => {
+                    const maxScroll = container.scrollHeight - container.clientHeight;
+                    // Clamp target to maxScroll to handle overscroll/bounce values
+                    // If maxScroll is 0 (no scroll), target becomes 0.
+                    const targetPos = Math.min(rawTarget, Math.max(0, maxScroll));
+
+                    container.scrollTop = targetPos;
+                    const current = container.scrollTop;
+
+                    console.log(`Scroll attempt (left: ${retries}): Target ${targetPos} (Raw ${rawTarget}), Current ${current}, Max ${maxScroll}`);
+
+                    // Tolerance of 2px
+                    if (Math.abs(current - targetPos) > 2 && retries > 0) {
+                        // If we haven't reached target, try again
+                        setTimeout(() => attemptScroll(retries - 1), 100);
+                    } else {
+                        localStorage.removeItem('calendarScrollPos');
+                    }
+                };
+
+                // Start attempts
+                setTimeout(() => attemptScroll(5), 50);
+            }
+        }
+
+        // Attach to forms via delegation (more robust)
+        document.addEventListener('DOMContentLoaded', function () {
+            restoreScrollPosition();
+        });
+
+        // Use event delegation for form submits to catch all forms including overlays
+        document.addEventListener('submit', function (e) {
+            if (e.target.tagName === 'FORM') {
+                saveScrollPosition();
+            }
+        });
     </script>
 </body>
 
