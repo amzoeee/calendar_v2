@@ -133,7 +133,8 @@ body {
 
 .form-group input,
 .form-group select,
-.form-group textarea {
+.form-group textarea,
+.form-row input {
     width: 100%;
     padding: 0.4rem 0.6rem;
     background: var(--bg-primary);
@@ -146,7 +147,8 @@ body {
 
 .form-group input:focus,
 .form-group select:focus,
-.form-group textarea:focus {
+.form-group textarea:focus,
+.form-row input:focus {
     outline: none;
     border-color: var(--accent);
 }
@@ -329,9 +331,9 @@ body {
     position: absolute;
     top: 0;
     left: 0;
-    width: 200px;
-    /* Fixed width for the popout */
-    min-width: 100%;
+    width: auto;
+    min-width: 500px;
+    /* Widen to fit single row of inputs comfortably */
     min-height: 100px;
     /* Minimum height for usability */
     background: var(--bg-tertiary);
@@ -367,6 +369,18 @@ body {
     margin-bottom: 0;
     /* Remove bottom margin inside row */
     flex: 1;
+    width: auto;
+    /* Override the 100% width from general rule */
+    min-width: 0;
+    /* Allow shrinking */
+}
+
+.time-separator {
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    font-weight: bold;
+    color: var(--text-secondary);
 }
 
 .event-edit-form textarea {
