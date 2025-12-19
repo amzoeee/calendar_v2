@@ -25,4 +25,6 @@ instance/
 .DS_Store
 Thumbs.db
 
-# Note: calendar.db is NOT ignored - we want to keep the database!
+# Data
+calendar.db
+tags.json
