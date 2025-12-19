@@ -4,17 +4,22 @@ import database
 import json
 import os
 
+import create_default_tags
+
 app = Flask(__name__)
 
 def load_tags():
     """Load tag configuration from tags.json"""
+    # Ensure default tags exist
+    create_default_tags.create_default_tags()
+    
     tags_file = os.path.join(os.path.dirname(__file__), 'tags.json')
     try:
         with open(tags_file, 'r') as f:
             data = json.load(f)
             return data['tags']
-    except FileNotFoundError:
-        # Return default tags if file doesn't exist
+    except (FileNotFoundError, json.JSONDecodeError):
+        # Fallback if something goes wrong even after creation attempt
         return [
             {"name": "Work", "color": "#6366f1", "order": 1},
             {"name": "Personal", "color": "#ec4899", "order": 2},
