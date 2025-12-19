@@ -157,8 +157,7 @@
                                     </div>
                                 </form>
                                 <form action="{{ url_for('delete_event', event_id=event.id) }}" method="POST"
-                                    onclick="event.stopPropagation();"
-                                    onsubmit="event.stopPropagation(); return confirm('Delete?');">
+                                    onclick="event.stopPropagation();" onsubmit="return confirm('Delete?');">
                                     <input type="hidden" name="date" value="{{ date }}">
                                     <button type="submit" class="btn btn-sm btn-danger"
                                         style="width: 100%; margin-top: 4px;">Delete</button>
