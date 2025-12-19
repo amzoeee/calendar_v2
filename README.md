@@ -44,6 +44,22 @@ A simple, elegant Flask-based calendar application with daily view and persisten
 
 All events are stored in a SQLite database file (`calendar.db`) which is created automatically when you first run the application. This database file persists between server restarts, so your events will always be there when you return!
 
+## Event Tags and Customization
+
+The application supports categorizing events with custom tags and colors.
+
+1.  **Customize Tags**: You can define your own categories in `tags.json`. Each tag has a `name`, a HEX `color`, and an `order` for display:
+    ```json
+    {
+        "tags": [
+            {"name": "Work", "color": "#007bff", "order": 1},
+            {"name": "Social", "color": "#ffc107", "order": 3}
+        ]
+    }
+    ```
+2.  **Auto-Generation**: To ensure the app works out of the box, `create_default_tags.py` automatically generates a default `tags.json` file if one doesn't exist when the server starts.
+3.  **Privacy**: The `tags.json` file is ignored by Git, allowing you to maintain your own personal categories locally without affecting others.
+
 ## Project Structure
 
 ```
