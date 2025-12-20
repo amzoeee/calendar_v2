@@ -251,10 +251,56 @@
 
                 if (isHidden) {
                     eventBlock.classList.add('editing');
+                    // Set up keyboard shortcuts for this overlay
+                    setupOverlayKeyboardShortcuts(overlay, eventId);
                 } else {
                     eventBlock.classList.remove('editing');
                 }
             }
+        }
+
+        function setupOverlayKeyboardShortcuts(overlay, eventId) {
+            // Remove any existing handler to avoid duplicates
+            if (overlay.keydownHandler) {
+                document.removeEventListener('keydown', overlay.keydownHandler);
+            }
+
+            // Create and store the handler
+            overlay.keydownHandler = function (e) {
+                // Only handle if this overlay is visible
+                if (overlay.style.display === 'none') return;
+
+                if (e.key === 'Escape') {
+                    // Cancel/close the overlay
+                    e.preventDefault();
+                    toggleEventEdit(eventId);
+                } else if (e.key === 'Enter' && !e.shiftKey) {
+                    // Submit the form (unless in textarea where Enter is newline)
+                    if (e.target.tagName !== 'TEXTAREA') {
+                        e.preventDefault();
+                        const form = overlay.querySelector('.event-edit-form');
+                        if (form) {
+                            prepareEditForm(form);
+                            saveScrollPosition();
+                            form.submit();
+                        }
+                    }
+                } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                    // Delete the event (unless typing in input/textarea)
+                    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                        e.preventDefault();
+                        if (confirm('Delete this event?')) {
+                            const deleteForm = overlay.querySelector('form[action*="delete_event"]');
+                            if (deleteForm) {
+                                saveScrollPosition();
+                                deleteForm.submit();
+                            }
+                        }
+                    }
+                }
+            };
+
+            document.addEventListener('keydown', overlay.keydownHandler);
         }
 
 
