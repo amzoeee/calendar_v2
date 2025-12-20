@@ -451,6 +451,7 @@ def stats_view(date):
                          tag_colors=tag_colors,
                          max_scale=max_scale,
                          sunday_date=sunday.strftime('%Y-%m-%d'),
+                         today=datetime.now().strftime('%Y-%m-%d'),
                          prev_week=prev_week,
                          next_week=next_week)
 
