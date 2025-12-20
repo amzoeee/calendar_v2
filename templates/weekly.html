@@ -271,13 +271,15 @@
                         el.classList.remove('small-event');
                     }
 
-                    // Dynamic text logic
+                    // Dynamic text logic - check both height and width
                     const timeSpan = el.querySelector('.event-time');
                     const startTime = el.dataset.startTime;
                     const endTime = el.dataset.endTime;
+                    const width = el.offsetWidth;
 
                     if (timeSpan) {
-                        if (height < 30) {
+                        // Show only start time if too short OR too narrow
+                        if (height < 30 || width < 100) {
                             timeSpan.textContent = `, ${startTime}`;
                             timeSpan.style.display = 'inline';
                         } else {
