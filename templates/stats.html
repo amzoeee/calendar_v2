@@ -43,17 +43,16 @@
             top: 0;
             bottom: 60px;
             width: 40px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
             font-size: 0.75rem;
             color: var(--text-secondary);
         }
 
         .y-label {
+            position: absolute;
             text-align: right;
             padding-right: 0.5rem;
             line-height: 1;
+            transform: translateY(-50%);
         }
 
         /* Grid lines */
@@ -63,16 +62,57 @@
             right: 0;
             top: 0;
             bottom: 60px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
             pointer-events: none;
         }
 
         .grid-line {
+            position: absolute;
             width: 100%;
             height: 1px;
             background: var(--border);
+        }
+
+        /* Bars wrapper */
+        .bars-wrapper {
+            position: absolute;
+            left: 40px;
+            right: 0;
+            top: 0;
+            bottom: 60px;
+            display: flex;
+            align-items: flex-end;
+            gap: 1rem;
+            pointer-events: none;
+        }
+
+        /* Bar columns */
+        .bar-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            pointer-events: auto;
+        }
+
+        /* Labels wrapper */
+        .labels-wrapper {
+            position: absolute;
+            left: 40px;
+            right: 0;
+            bottom: 0;
+            height: 60px;
+            display: flex;
+            gap: 1rem;
+        }
+
+        /* Label columns */
+        .label-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
         }
 
         /* Day bars */
@@ -211,27 +251,37 @@
                 </div>
 
                 <!-- Day bars -->
-                {% for day in week_data %}
-                <div class="day-bar">
-                    {% if day.total > 0 %}
-                    {% set height_px = ((day.total / max_scale) * 340) %}
-                    <div class="bar-stack" style="height: {{ height_px }}px;">
-                        {% for tag in all_tags %}
-                        {% if day.hours.get(tag, 0) > 0 %}
-                        {% set hours = day.hours[tag] %}
-                        <div class="bar-segment"
-                            style="height: {{ (hours / day.total * 100)|round }}%; background-color: {{ tag_colors.get(tag, '#6b7280') }};"
-                            title="{{ tag }}: {{ '%.1f'|format(hours) }}h">
-                            {% if hours >= 0.5 %}{{ '%.1f'|format(hours) }}h{% endif %}
+                <div class="bars-wrapper">
+                    {% for day in week_data %}
+                    <div class="bar-column">
+                        {% if day.total > 0 %}
+                        {% set height_px = ((day.total / max_scale) * 340) %}
+                        <div class="bar-stack" style="height: {{ height_px }}px;">
+                            {% for tag in all_tags %}
+                            {% if day.hours.get(tag, 0) > 0 %}
+                            {% set hours = day.hours[tag] %}
+                            <div class="bar-segment"
+                                style="height: {{ (hours / day.total * 100)|round }}%; background-color: {{ tag_colors.get(tag, '#6b7280') }};"
+                                title="{{ tag }}: {{ '%.1f'|format(hours) }}h">
+                                {% if hours >= 0.5 %}{{ '%.1f'|format(hours) }}h{% endif %}
+                            </div>
+                            {% endif %}
+                            {% endfor %}
                         </div>
                         {% endif %}
-                        {% endfor %}
                     </div>
-                    {% endif %}
-                    <div class="bar-label">{{ day.day_name }}</div>
-                    <div class="bar-total">{{ '%.1f'|format(day.total) }}h</div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
+
+                <!-- Day labels -->
+                <div class="labels-wrapper">
+                    {% for day in week_data %}
+                    <div class="label-column">
+                        <div class="bar-label">{{ day.day_name }}</div>
+                        <div class="bar-total">{{ '%.1f'|format(day.total) }}h</div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
 
