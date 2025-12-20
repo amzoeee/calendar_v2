@@ -12,10 +12,14 @@
     <div class="container">
         <header class="calendar-header">
             <div class="navigation">
-                <a href="{{ url_for('weekly_view', date=prev_week) }}" class="nav-btn">← Prev Week</a>
+                <div style="display: flex; gap: 0.5rem;">
+                    <a href="{{ url_for('weekly_view', date=prev_week) }}" class="nav-btn">←</a>
+                    <a href="{{ url_for('weekly_view', date=today) }}" class="nav-btn">Today</a>
+                    <a href="{{ url_for('weekly_view', date=next_week) }}" class="nav-btn">→</a>
+                </div>
+
                 <h1 class="date-title">Week of {{ week_data[0].day_display }}</h1>
-                <a href="{{ url_for('weekly_view', date=today) }}" class="nav-btn">This Week</a>
-                <a href="{{ url_for('weekly_view', date=next_week) }}" class="nav-btn">Next Week →</a>
+
                 <div style="display: flex; gap: 0.5rem;">
                     <a href="{{ url_for('daily_view', date=sunday_date) }}" class="nav-btn">Daily</a>
                     <a href="{{ url_for('weekly_view', date=sunday_date) }}" class="nav-btn view-toggle">Weekly</a>
