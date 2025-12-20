@@ -5,8 +5,12 @@ import json
 import os
 
 import create_default_tags
+import ics_parser
+
 
 app = Flask(__name__)
+app.secret_key = 'your-secret-key-here-change-in-production'  # Required for flash messages
+
 
 def load_tags():
     """Load tag configuration from tags.json"""
@@ -362,6 +366,54 @@ def weekly_view(date):
                          tags=tags,
                          prev_week=prev_week,
                          next_week=next_week)
+
+@app.route('/import_ics', methods=['POST'])
+def import_ics():
+    """Import events from an uploaded .ics file."""
+    from flask import flash
+    
+    # Get the uploaded file
+    if 'ics_file' not in request.files:
+        flash('No file uploaded', 'error')
+        return redirect(request.referrer or url_for('index'))
+    
+    file = request.files['ics_file']
+    
+    # Check if file was selected
+    if file.filename == '':
+        flash('No file selected', 'error')
+        return redirect(request.referrer or url_for('index'))
+    
+    # Verify it's an .ics file
+    if not file.filename.endswith('.ics'):
+        flash('Please upload a valid .ics file', 'error')
+        return redirect(request.referrer or url_for('index'))
+    
+    # Get the selected tag
+    tag = request.form.get('import_tag', '')
+    
+    try:
+        # Read file content
+        file_content = file.read()
+        
+        # Parse the ICS file
+        events = ics_parser.parse_ics_file(file_content)
+        
+        if not events:
+            flash('No events found in the file', 'warning')
+            return redirect(request.referrer or url_for('index'))
+        
+        # Import events to database
+        imported_count = database.bulk_add_events(events, tag)
+        
+        flash(f'Successfully imported {imported_count} events!', 'success')
+        
+    except ValueError as e:
+        flash(f'Error parsing file: {str(e)}', 'error')
+    except Exception as e:
+        flash(f'Error importing events: {str(e)}', 'error')
+    
+    return redirect(request.referrer or url_for('index'))
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

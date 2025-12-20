@@ -17,8 +17,68 @@
                 <a href="{{ url_for('index') }}" class="nav-btn">Today</a>
                 <a href="{{ url_for('daily_view', date=next_day) }}" class="nav-btn">Next →</a>
                 <a href="{{ url_for('weekly_view', date=date) }}" class="nav-btn view-toggle">Weekly View</a>
+                <button type="button" class="nav-btn"
+                    onclick="document.getElementById('import-modal').style.display='block'">Import ICS</button>
             </div>
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-messages" style="margin-top: 1rem;">
+                {% for category, message in messages %}
+                <div class="flash-{{ category }}"
+                    style="padding: 0.75rem; margin-bottom: 0.5rem; border-radius: 4px; 
+                                {% if category == 'success' %}background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb;
+                                {% elif category == 'error' %}background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;
+                                {% elif category == 'warning' %}background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7;
+                                {% else %}background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb;{% endif %}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
         </header>
+
+        <!-- Import ICS Modal -->
+        <div id="import-modal"
+            style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);"
+            onclick="if(event.target.id === 'import-modal') this.style.display='none'">
+            <div
+                style="background-color: white; margin: 15% auto; padding: 2rem; border-radius: 8px; width: 90%; max-width: 500px;">
+                <h2 style="margin-top: 0;">Import Google Calendar (.ics)</h2>
+                <p style="color: #666; margin-bottom: 1.5rem;">Upload a .ics file exported from Google Calendar. All
+                    events will be imported with the selected tag.</p>
+
+                <form action="{{ url_for('import_ics') }}" method="POST" enctype="multipart/form-data">
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label for="ics_file" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">ICS
+                            File</label>
+                        <input type="file" id="ics_file" name="ics_file" accept=".ics" required
+                            style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label for="import_tag" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Tag for
+                            All Events</label>
+                        <select id="import_tag" name="import_tag"
+                            style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="">None</option>
+                            {% for tag in tags %}
+                            <option value="{{ tag.name }}">{{ tag.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">Import</button>
+                        <button type="button" class="btn"
+                            onclick="document.getElementById('import-modal').style.display='none'"
+                            style="flex: 1;">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
 
         <main class="calendar-content">
             <section class="add-event-section">

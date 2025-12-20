@@ -141,5 +141,50 @@ def delete_event(event_id):
     conn.commit()
     conn.close()
 
+def bulk_add_events(events, tag=''):
+    """
+    Add multiple events to the database in a single transaction.
+    
+    Args:
+        events: List of event dictionaries with keys:
+                - title: Event title
+                - description: Event description (optional)
+                - start_datetime: Start datetime string (YYYY-MM-DD HH:MM:SS)
+                - end_datetime: End datetime string (YYYY-MM-DD HH:MM:SS)
+        tag: Tag to apply to all events (optional)
+        
+    Returns:
+        int: Number of events successfully imported
+    """
+    if not events:
+        return 0
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    imported_count = 0
+    try:
+        for event in events:
+            title = event.get('title', '(no title)')
+            description = event.get('description', '')
+            start_datetime = event.get('start_datetime')
+            end_datetime = event.get('end_datetime')
+            
+            if start_datetime and end_datetime:
+                cursor.execute(
+                    'INSERT INTO events (start_datetime, end_datetime, title, description, tag) VALUES (?, ?, ?, ?, ?)',
+                    (start_datetime, end_datetime, title, description, tag)
+                )
+                imported_count += 1
+        
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        conn.close()
+    
+    return imported_count
+
 # Initialize the database when the module is imported
 init_db()
