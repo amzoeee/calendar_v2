@@ -517,6 +517,22 @@
                 saveScrollPosition();
             }
         });
+
+        // Arrow key navigation
+        window.addEventListener('keydown', function (e) {
+            // Only handle arrow keys if not typing in an input/textarea
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+                return;
+            }
+
+            if (e.key === 'ArrowLeft') {
+                // Previous day
+                window.location.href = '{{ url_for("daily_view", date=prev_day) }}';
+            } else if (e.key === 'ArrowRight') {
+                // Next day
+                window.location.href = '{{ url_for("daily_view", date=next_day) }}';
+            }
+        });
     </script>
 </body>
 
