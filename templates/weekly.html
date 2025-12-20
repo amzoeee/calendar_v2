@@ -32,6 +32,17 @@
                     </div>
                 </div>
 
+                <!-- Weekly headers row (frozen, not scrollable) -->
+                <div class="weekly-headers-row">
+                    <div class="header-spacer"></div>
+                    {% for day in week_data %}
+                    <div class="day-header">
+                        <div class="day-name">{{ day.day_name }}</div>
+                        <div class="day-date">{{ day.day_display }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+
                 <div class="weekly-timeline-wrapper">
                     <!-- Shared time labels for all columns -->
                     <div class="weekly-time-labels">
@@ -57,11 +68,6 @@
                 <div class="weekly-grid">
                     {% for day in week_data %}
                     <div class="day-column">
-                        <div class="day-header">
-                            <div class="day-name">{{ day.day_name }}</div>
-                            <div class="day-date">{{ day.day_display }}</div>
-                        </div>
-
                         <div class="timeline-container-weekly">
                             <div class="timeline-grid">
                                 {% for hour in range(24) %}
@@ -232,24 +238,19 @@
             const timelineContainersWeekly = document.querySelectorAll('.timeline-container-weekly');
             const dayColumns = document.querySelectorAll('.day-column');
 
-            // Get header height from first day-header
-            const firstHeader = document.querySelector('.day-header');
-            const headerHeight = firstHeader ? firstHeader.offsetHeight : 0;
-
+            // No need for headerHeight - headers are outside the scroll container now!
             const weeklyGrid = document.querySelector('.weekly-grid');
             if (weeklyGrid) {
-                weeklyGrid.style.height = `${totalHeight + headerHeight}px`;
+                weeklyGrid.style.height = `${totalHeight}px`;
             }
 
-            // Don't touch time labels - they work fine with CSS
-            // Only set the grid content heights
+            // Time labels height is totalHeight - padding handled by CSS
             timeLabelsAll.forEach(el => {
                 el.style.height = `${totalHeight}px`;
-                el.style.top = `${headerHeight}px`; // Position below headers (absolute positioned)
             });
             timelineGridsAll.forEach(el => el.style.height = `${totalHeight}px`);
             timelineContainersWeekly.forEach(el => el.style.height = `${totalHeight}px`);
-            dayColumns.forEach(el => el.style.height = `${totalHeight + headerHeight}px`);
+            dayColumns.forEach(el => el.style.height = `${totalHeight}px`);
 
             // Update all events across all columns
             const events = document.querySelectorAll('.event-block');

@@ -1,0 +1,33 @@
+/* Frozen header row */
+.weekly-headers-row {
+    display: flex;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+
+.header-spacer {
+    width: 60px;
+    /* Match time labels sidebar width */
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+}
+
+.weekly-headers-row .day-header {
+    flex: 1;
+    min-width: 140px;
+    /* Match day-column min-width */
+    background: var(--bg-tertiary);
+    padding: 0.5rem 0.5rem;
+    border-right: 1px solid var(--border);
+    text-align: center;
+    position: relative;
+    /* Not sticky anymore */
+}
+
+.weekly-headers-row .day-header:last-child {
+    border-right: none;
+}

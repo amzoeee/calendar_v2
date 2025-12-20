@@ -203,6 +203,38 @@ body {
     border-radius: 6px;
 }
 
+/* Frozen header row */
+.weekly-headers-row {
+    display: flex;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+
+.header-spacer {
+    width: 60px;
+    /* Match time labels sidebar width */
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+}
+
+.weekly-headers-row .day-header {
+    flex: 1;
+    min-width: 140px;
+    /* Match day-column min-width */
+    background: var(--bg-tertiary);
+    padding: 0.5rem 0.5rem;
+    border-right: 1px solid var(--border);
+    text-align: center;
+}
+
+.weekly-headers-row .day-header:last-child {
+    border-right: none;
+}
+
 /* Shared time labels for weekly view */
 .weekly-timeline-wrapper {
     position: relative;
@@ -210,7 +242,10 @@ body {
     height: 600px;
     overflow-y: auto;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-top: none;
+    /* Header row has the top border */
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
 }
 
 .weekly-time-labels {
@@ -227,6 +262,11 @@ body {
 
 .weekly-time-labels .time-labels {
     position: relative;
+}
+
+.time-label:first-child {
+    display: none;
+    /* Hide 12 AM label - midnight grid line is still visible */
 }
 
 .weekly-grid {
@@ -470,18 +510,17 @@ body {
 
 .day-column:first-child {
     border-left: 1px solid var(--border);
-    border-top-left-radius: 8px;
     border-bottom-left-radius: 8px;
 }
 
 .day-column:last-child {
-    border-top-right-radius: 8px;
     border-bottom-right-radius: 8px;
 }
 
 .day-header {
     background: var(--bg-tertiary);
-    padding: 0.75rem;
+    padding: 0.5rem 0.5rem;
+    /* Reduced from 0.75rem */
     border-bottom: 1px solid var(--border);
     text-align: center;
     position: sticky;
@@ -491,16 +530,19 @@ body {
 
 .day-name {
     font-weight: 600;
-    font-size: 0.875rem;
+    font-size: 0.7rem;
+    /* Reduced from 0.875rem */
     color: var(--text-primary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .day-date {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
+    /* Reduced from 0.75rem */
     color: var(--text-secondary);
-    margin-top: 0.25rem;
+    margin-top: 0.15rem;
+    /* Reduced from 0.25rem */
 }
 
 .timeline-container-weekly {
