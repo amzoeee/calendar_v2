@@ -93,6 +93,10 @@ body {
     margin-bottom: 1.5rem;
 }
 
+.add-event-section {
+    max-width: 575px;
+}
+
 .add-event-section h2,
 .timeline-section h2 {
     font-size: 1rem;
@@ -132,6 +136,11 @@ body {
 #add-event-form #tag {
     width: 100%;
     max-width: 150px;
+}
+
+#add-event-form #description {
+    width: 100%;
+    max-width: 545px;
 }
 
 .form-group label {
