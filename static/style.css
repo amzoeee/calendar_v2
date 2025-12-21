@@ -158,6 +158,34 @@ body {
     min-height: 50px;
 }
 
+.form-group input[type="file"] {
+    padding: 0.25rem 0.6rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.form-group input[type="file"]::file-selector-button {
+    padding: 0.25rem 0.8rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    margin-right: 0.75rem;
+}
+
+.form-group input[type="file"]::file-selector-button:hover {
+    background: var(--accent);
+    color: var(--text-primary);
+}
+
 /* Buttons */
 .btn {
     padding: 0.5rem 1rem;
