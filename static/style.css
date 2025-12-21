@@ -124,6 +124,16 @@ body {
     margin-bottom: 0;
 }
 
+#add-event-form #title {
+    width: 100%;
+    min-width: 360px;
+}
+
+#add-event-form #tag {
+    width: 100%;
+    max-width: 150px;
+}
+
 .form-group label {
     display: block;
     font-size: 0.85rem;
