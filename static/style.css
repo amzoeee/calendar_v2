@@ -484,6 +484,15 @@ body {
     color: var(--text-secondary);
 }
 
+/* Date/time inputs narrower in add event form */
+.single-line-times input[type="date"] {
+    max-width: 130px;
+}
+
+.single-line-times input[type="time"] {
+    max-width: 120px;
+}
+
 .event-edit-form textarea {
     min-height: 40px;
     resize: vertical;
