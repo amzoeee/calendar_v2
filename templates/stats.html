@@ -8,8 +8,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         .stats-container {
-            max-width: 1200px;
-            margin: 1rem auto;
+            max-width: 1400px;
+            margin: 0 auto;
         }
 
         .chart-wrapper {
@@ -225,9 +225,67 @@
                     <a href="{{ url_for('daily_view', date=sunday_date) }}" class="nav-btn">Daily</a>
                     <a href="{{ url_for('weekly_view', date=sunday_date) }}" class="nav-btn">Weekly</a>
                     <a href="{{ url_for('stats_view', date=sunday_date) }}" class="nav-btn view-toggle">Stats</a>
+                    <button onclick="document.getElementById('import-modal').style.display='block'"
+                        class="nav-btn">Import ICS</button>
                 </div>
             </div>
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-messages" style="margin-top: 1rem;">
+                {% for category, message in messages %}
+                <div class="flash-{{ category }}"
+                    style="padding: 0.75rem; margin-bottom: 0.5rem; border-radius: 4px; 
+                                {% if category == 'success' %}background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb;
+                                {% elif category == 'error' %}background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;
+                                {% elif category == 'warning' %}background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7;
+                                {% else %}background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb;{% endif %}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
         </header>
+
+        <!-- Import ICS Modal -->
+        <div id="import-modal"
+            style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7);"
+            onclick="if(event.target.id === 'import-modal') this.style.display='none'">
+            <div
+                style="background: var(--bg-secondary); margin: 15% auto; padding: 2rem; border-radius: 8px; width: 90%; max-width: 500px; border: 1px solid var(--border);">
+                <h2
+                    style="margin-top: 0; color: var(--text-primary); font-weight: 500; font-size: 1.25rem; margin-bottom: 0.5rem;">
+                    Import Google Calendar</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">Upload a .ics file
+                    exported from Google Calendar. All events will be imported with the selected tag.</p>
+
+                <form action="{{ url_for('import_ics') }}" method="POST" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="ics_file">ICS File</label>
+                        <input type="file" id="ics_file" name="ics_file" accept=".ics" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="import_tag">Tag for All Events</label>
+                        <select id="import_tag" name="import_tag">
+                            <option value="">None</option>
+                            {% for tag in tags %}
+                            <option value="{{ tag.name }}">{{ tag.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">Import</button>
+                        <button type="button" class="btn"
+                            onclick="document.getElementById('import-modal').style.display='none'"
+                            style="flex: 1;">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
 
         <div class="chart-wrapper">
             <h2 class="chart-title">Hours by Tag per Day</h2>
