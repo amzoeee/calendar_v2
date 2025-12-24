@@ -183,7 +183,7 @@
                                             border-left-color: {{ event.tag_color }};"
                             data-start-minutes="{{ event.top_position }}" data-duration-minutes="{{ event.height }}"
                             data-title="{{ event.title }}" data-start-time="{{ event.start_time }}"
-                            data-end-time="{{ event.end_time }}" onclick="toggleEventEdit({{ event.id }})">
+                            data-end-time="{{ event.end_time }}" onclick="toggleEventEdit({{ event.id }}, event)">
 
                             <div class="event-block-content">
                                 <span class="event-title">{{ event.title }}</span>
@@ -251,7 +251,7 @@
     </div>
 
     <script>
-        function toggleEventEdit(eventId) {
+        function toggleEventEdit(eventId, clickEvent) {
             // Close all other overlays
             document.querySelectorAll('.event-block.editing').forEach(el => {
                 if (el.querySelector(`#edit-overlay-${eventId}`) === null) {
@@ -270,6 +270,16 @@
 
                 if (isHidden) {
                     eventBlock.classList.add('editing');
+
+                    // Position overlay at click location
+                    if (clickEvent) {
+                        const rect = eventBlock.getBoundingClientRect();
+                        const clickX = clickEvent.clientX - rect.left;
+                        const clickY = clickEvent.clientY - rect.top;
+                        overlay.style.left = clickX + 'px';
+                        overlay.style.top = clickY + 'px';
+                    }
+
                     // Set up keyboard shortcuts for this overlay
                     setupOverlayKeyboardShortcuts(overlay, eventId);
                     // Set up click outside to close
