@@ -440,13 +440,20 @@ def stats_view(date):
         tag_colors[tag_obj['name']] = tag_obj['color']
     tag_colors['Untagged'] = '#6b7280'  # Default gray for untagged
     
+    # Order all_tags based on tags.json order (reversed) with Untagged at bottom
+    tag_order = [tag['name'] for tag in tags]
+    tag_order.reverse()  # Reverse so higher order numbers appear lower on stats
+    all_tags_ordered = [tag for tag in tag_order if tag in all_tags_set]
+    # Add any tags not in tags.json (like 'Untagged') at the bottom
+    all_tags_ordered.extend([tag for tag in all_tags_set if tag not in tag_order])
+    
     # Round max_hours up to next whole number for scale
     max_scale = int(max_hours) + 1 if max_hours > 0 else 24
     
     return render_template('stats.html',
                          week_data=week_data,
                          tags=tags,
-                         all_tags=sorted(all_tags_set),
+                         all_tags=all_tags_ordered,
                          tag_averages=tag_averages,
                          tag_colors=tag_colors,
                          max_scale=max_scale,
