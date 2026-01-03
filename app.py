@@ -4,8 +4,7 @@ import database
 import json
 import os
 
-import create_default_tags
-import ics_parser
+from utils import ics_parser
 
 
 app = Flask(__name__)
