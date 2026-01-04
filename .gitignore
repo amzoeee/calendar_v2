@@ -27,3 +27,6 @@ Thumbs.db
 
 # Data
 calendar.db
+
+# Environment variables
+.env

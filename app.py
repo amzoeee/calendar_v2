@@ -3,12 +3,16 @@ from datetime import datetime, timedelta
 import database
 import json
 import os
+from dotenv import load_dotenv
 
 from utils import ics_parser
 
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here-change-in-production'  # Required for flash messages
+# Use secret key from environment variable, fallback to default for development
+app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here-change-in-production')
 
 
 def load_tags():
@@ -577,4 +581,8 @@ def get_events_api():
     return jsonify({'events': events})
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    # Get port from environment variable, default to 5002
+    port = int(os.getenv('PORT', 5002))
+    # Bind to 0.0.0.0 to allow external connections (local network access)
+    # Set debug=False in production for security
+    app.run(host='0.0.0.0', port=port, debug=True)
