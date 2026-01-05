@@ -574,7 +574,7 @@ def import_ics():
     try:
         # Read and parse the ICS file
         ics_content = file.read().decode('utf-8')
-        events = ics_parser.parse_ics(ics_content)
+        events = ics_parser.parse_ics_file(ics_content)
         
         # Import each event with the current user's ID
         imported_count = 0
