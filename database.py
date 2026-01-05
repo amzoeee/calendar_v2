@@ -674,3 +674,31 @@ def init_user_tags(user_id):
 
 # Initialize the database when the module is imported
 init_db()
+
+def get_events_by_tag(user_id, tag_id=None):
+    """Get all events for a user, optionally filtered by tag.
+    
+    Args:
+        user_id: User ID to filter events
+        tag_id: Optional tag ID to filter by. If None, returns all events.
+    
+    Returns:
+        list: List of event dictionaries
+    """
+    conn = get_db_connection()
+    
+    if tag_id:
+        events = conn.execute('''
+            SELECT * FROM events 
+            WHERE user_id = ? AND tag = ?
+            ORDER BY start_datetime
+        ''', (user_id, tag_id)).fetchall()
+    else:
+        events = conn.execute('''
+            SELECT * FROM events 
+            WHERE user_id = ?
+            ORDER BY start_datetime
+        ''', (user_id,)).fetchall()
+    
+    conn.close()
+    return [dict(event) for event in events]

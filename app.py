@@ -6,7 +6,7 @@ import json
 import os
 from dotenv import load_dotenv
 
-from utils import ics_parser
+from utils import ics_parser, ics_exporter
 
 # Load environment variables from .env file
 load_dotenv()
@@ -677,6 +677,42 @@ def get_events_api():
         events = database.fetch_all_events()
     
     return jsonify({'events': events})
+
+
+@app.route('/export_ics')
+@login_required
+def export_ics():
+    """Export events as ICS file, optionally filtered by tag"""
+    from flask import make_response
+    
+    tag_id = request.args.get('tag')
+    tag_name_filter = None
+    
+    # Convert tag ID to tag name (events store tag name, not ID)
+    if tag_id:
+        tags = load_tags(current_user.id)
+        tag_obj = next((t for t in tags if str(t['id']) == str(tag_id)), None)
+        if tag_obj:
+            tag_name_filter = tag_obj['name']
+    
+    # Get events (pass tag name, not ID)
+    events = database.get_events_by_tag(current_user.id, tag_name_filter)
+    
+    # Determine filename
+    if tag_name_filter:
+        filename = f"calendar-{tag_name_filter.replace(' ', '_')}.ics"
+    else:
+        filename = "calendar-all-events.ics"
+    
+    # Generate ICS content
+    ics_content = ics_exporter.generate_ics(events)
+    
+    # Create response with proper headers
+    response = make_response(ics_content)
+    response.headers['Content-Type'] = 'text/calendar; charset=utf-8'
+    response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    return response
 
 if __name__ == '__main__':
     # Get port from environment variable, default to 5002

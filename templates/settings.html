@@ -84,6 +84,32 @@
                     class="btn btn-primary">Import ICS File</button>
             </section>
 
+            <section class="settings-section">
+                <h2>Export Calendar</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">Export your events to an .ics file to import into other calendar apps</p>
+                <div class="form-row" style="align-items: flex-end;">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="export-tag">Filter by Tag</label>
+                        <select id="export-tag" name="export-tag" class="form-control">
+                            <option value="">All Events</option>
+                            {% for tag in tags %}
+                            <option value="{{ tag.id }}">{{ tag.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button onclick="exportEvents()" class="btn btn-primary" style="margin-bottom: 1.5rem;">Export ICS File</button>
+                </div>
+            </section>
+
+            <script>
+            function exportEvents() {
+                const tagSelect = document.getElementById('export-tag');
+                const tagId = tagSelect.value;
+                const url = tagId ? `/export_ics?tag=${tagId}` : '/export_ics';
+                window.location.href = url;
+            }
+            </script>
+
             <!-- Edit Tag Modal -->
             <div id="edit-modal" class="modal" style="display: none;">
                 <div class="modal-content">
