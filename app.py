@@ -684,6 +684,8 @@ def get_events_api():
 def export_ics():
     """Export events as ICS file, optionally filtered by tag"""
     from flask import make_response
+    import io
+    import zipfile
     
     tag_id = request.args.get('tag')
     tag_name_filter = None
@@ -695,14 +697,33 @@ def export_ics():
         if tag_obj:
             tag_name_filter = tag_obj['name']
     
-    # Get events (pass tag name, not ID)
-    events = database.get_events_by_tag(current_user.id, tag_name_filter)
+    # If no tag selected, create zip with separate ICS file per tag
+    if not tag_name_filter:
+        tags = load_tags(current_user.id)
+        
+        # Create zip file in memory
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for tag in tags:
+                # Get events for this tag
+                events = database.get_events_by_tag(current_user.id, tag['name'])
+                if events:  # Only include tags that have events
+                    # Generate ICS content
+                    ics_content = ics_exporter.generate_ics(events, calendar_name=tag['name'])
+                    # Add to zip with safe filename
+                    filename = f"calendar-{tag['name'].replace(' ', '_')}.ics"
+                    zip_file.writestr(filename, ics_content)
+        
+        # Return zip file
+        zip_buffer.seek(0)
+        response = make_response(zip_buffer.read())
+        response.headers['Content-Type'] = 'application/zip'
+        response.headers['Content-Disposition'] = 'attachment; filename="calendar-all-tags.zip"'
+        return response
     
-    # Determine filename
-    if tag_name_filter:
-        filename = f"calendar-{tag_name_filter.replace(' ', '_')}.ics"
-    else:
-        filename = "calendar-all-events.ics"
+    # Single tag export
+    events = database.get_events_by_tag(current_user.id, tag_name_filter)
+    filename = f"calendar-{tag_name_filter.replace(' ', '_')}.ics"
     
     # Generate ICS content
     ics_content = ics_exporter.generate_ics(events)
@@ -713,6 +734,7 @@ def export_ics():
     response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
     
     return response
+
 
 if __name__ == '__main__':
     # Get port from environment variable, default to 5002
