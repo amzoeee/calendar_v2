@@ -58,9 +58,9 @@
         .btn-primary {
             width: 100%;
             padding: 0.75rem;
-            background: var(--accent-blue);
-            color: white;
-            border: none;
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
             border-radius: 4px;
             font-size: 1rem;
             cursor: pointer;
@@ -68,7 +68,7 @@
         }
 
         .btn-primary:hover {
-            opacity: 0.9;
+            background: var(--bg-tertiary);
         }
 
         .auth-link {
@@ -78,12 +78,12 @@
         }
 
         .auth-link a {
-            color: var(--accent-blue);
-            text-decoration: none;
+            color: inherit;
+            text-decoration: underline;
         }
 
         .auth-link a:hover {
-            text-decoration: underline;
+            opacity: 0.8;
         }
 
         .flash-message {
