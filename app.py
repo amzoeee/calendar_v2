@@ -394,7 +394,7 @@ def weekly_view(date):
         day_display = current_day.strftime('%m/%d')  # 12/17
         
         # Get events for this day
-        events = database.get_events_by_date(day_str)
+        events = database.get_events_by_date(day_str, current_user.id)
         
         # Process events (similar to daily view)
         processed_events = []
@@ -483,7 +483,7 @@ def stats_view(date):
     # Get tag hours for the week
     start_date = sunday.strftime('%Y-%m-%d')
     end_date = (saturday + timedelta(days=1)).strftime('%Y-%m-%d')  # End is exclusive
-    tag_hours = database.get_tag_hours_for_week(start_date, end_date)
+    tag_hours = database.get_tag_hours_for_week(start_date, end_date, current_user.id)
     
     # Build day data with tag hours
     week_data = []

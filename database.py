@@ -408,7 +408,7 @@ def get_events_by_tag(tag_name):
     return [dict(event) for event in events]
 
 
-def get_tag_hours_for_week(start_date, end_date):
+def get_tag_hours_for_week(start_date, end_date, user_id):
     """Get cumulative hours per tag for each day in a week.
     
     Handles multi-day events by clipping to day boundaries.
@@ -417,6 +417,7 @@ def get_tag_hours_for_week(start_date, end_date):
     Args:
         start_date: Week start date string 'YYYY-MM-DD'
         end_date: Week end date string 'YYYY-MM-DD'
+        user_id: User ID to filter events
     
     Returns:
         dict: {date_str: {tag: hours}}
@@ -426,13 +427,13 @@ def get_tag_hours_for_week(start_date, end_date):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Get all events that overlap with the week
+    # Get all events that overlap with the week for this user
     cursor.execute('''
         SELECT id, start_datetime, end_datetime, tag
         FROM events
-        WHERE start_datetime < ? AND end_datetime > ?
+        WHERE user_id = ? AND start_datetime < ? AND end_datetime > ?
         ORDER BY start_datetime
-    ''', (end_date, start_date))
+    ''', (user_id, end_date, start_date))
     
     events = cursor.fetchall()
     conn.close()
