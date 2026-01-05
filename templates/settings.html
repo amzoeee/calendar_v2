@@ -78,14 +78,16 @@
 
             <section class="settings-section">
                 <h2>Import Calendar</h2>
-                <p style="color: var(--text-secondary); margin-bottom: 1rem;">Import events from a Google Calendar .ics file</p>
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">Import events from a Google Calendar .ics
+                    file</p>
                 <form action="{{ url_for('import_ics') }}" method="POST" enctype="multipart/form-data">
-                    <div class="form-row" style="align-items: flex-end;">
-                        <div class="form-group" style="flex: 1;">
+                    <div class="form-row" style="align-items: flex-end; gap: 0;">
+                        <div class="form-group" style="flex: 1; margin-bottom: 0; margin-right: 0.75rem;">
                             <label for="import-file">ICS File</label>
-                            <input type="file" id="import-file" name="ics_file" accept=".ics" required class="form-control">
+                            <input type="file" id="import-file" name="ics_file" accept=".ics" required
+                                class="form-control" style="width: 100%; min-width: 250px;">
                         </div>
-                        <div class="form-group" style="flex: 1;">
+                        <div class="form-group" style="flex: 1; margin-bottom: 0; margin-right: 0;">
                             <label for="import_tag">Assign Tag</label>
                             <select id="import_tag" name="import_tag" class="form-control">
                                 <option value="">No Tag</option>
@@ -94,7 +96,8 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <button type="submit" class="btn btn-primary" style="margin-bottom: 1.5rem;">Import ICS File</button>
+                        <button type="submit" class="btn btn-primary" style="margin-left: 1rem;">Import ICS
+                            File</button>
                     </div>
                 </form>
             </section>
@@ -103,8 +106,8 @@
                 <h2>Export Calendar</h2>
                 <p style="color: var(--text-secondary); margin-bottom: 1rem;">Export your events as .ics files. Select a
                     tag or choose "All Events" to download a zip with separate files per tag.</p>
-                <div class="form-row" style="align-items: flex-end;">
-                    <div class="form-group" style="flex: 1;">
+                <div class="form-row" style="align-items: flex-end; gap: 0.5rem;">
+                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
                         <label for="export-tag">Filter by Tag</label>
                         <select id="export-tag" name="export-tag" class="form-control">
                             <option value="">All Events</option>
@@ -113,17 +116,17 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <button onclick="exportEvents()" class="btn btn-primary" style="margin-bottom: 1.5rem;">Export ICS
+                    <button onclick="exportEvents()" class="btn btn-primary" style="margin-left: 1rem;">Export ICS
                         File</button>
                 </div>
             </section>
 
             <script>
-                function exportEvents() {
-                    const tagSelect = document.getElementById('export-tag');
-                    const tagId = tagSelect.value;
-                    const url = tagId ? `/export_ics?tag=${tagId}` : '/export_ics';
-                    window.location.href = url;
+                func                    s() {
+                    const tagSelect = document.getE                    rt-tag');
+                    c                    Select.value;
+                    const url = tagId ? `/export_i                     : '/export_ics';
+                          ndhref = url;
                 }
             </script>
 
@@ -284,13 +287,13 @@
             const savedPos = localStorage.getItem('settingsScrollPos');
             if (savedPos !== null) {
                 window.scrollTo(0, parseInt(savedPos));
-                localStorage.removeItem('settingsScrollPos');
+                localStorage.removeItem('setticrollPos');
             }
         });
     </script>
 
     <!-- Import ICS Modal -->
-        </div>
+    </div>
     </div>
 </body>
 
