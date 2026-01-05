@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from datetime import datetime, timedelta
 import database
 import json
@@ -14,10 +15,28 @@ app = Flask(__name__)
 # Use secret key from environment variable, fallback to default for development
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here-change-in-production')
 
+# Setup Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
 
-def load_tags():
+# User class for Flask-Login
+class User(UserMixin):
+    def __init__(self, id, username):
+        self.id = id
+        self.username = username
+
+@login_manager.user_loader
+def load_user(user_id):
+    user_data = database.get_user_by_id(int(user_id))
+    if user_data:
+        return User(user_data['id'], user_data['username'])
+    return None
+
+
+def load_tags(user_id):
     """Load tag configuration from database"""
-    return database.get_all_tags()
+    return database.get_all_tags(user_id)
 
 def get_tag_color(tag_name, tags):
     """Get the color for a specific tag"""
@@ -117,13 +136,83 @@ def calculate_overlap_columns(events):
     
     return sorted_events
 
+# Authentication Routes
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """User login"""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        remember = request.form.get('remember') == 'on'
+        
+        user_data = database.get_user_by_username(username)
+        
+        if user_data and database.verify_password(user_data['id'], password):
+            user = User(user_data['id'], user_data['username'])
+            login_user(user, remember=remember)
+            flash(f'Welcome back, {username}!', 'success')
+            
+            # Redirect to next page or index
+            next_page = request.args.get('next')
+            return redirect(next_page) if next_page else redirect(url_for('index'))
+        else:
+            flash('Invalid username or password', 'error')
+    
+    return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    """User registration"""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        # Validation
+        if not username:
+            flash('Username is required', 'error')
+        elif len(password) < 6:
+            flash('Password must be at least 6 characters', 'error')
+        elif password != confirm_password:
+            flash('Passwords do not match', 'error')
+        else:
+            try:
+                user_id = database.create_user(username, password)
+                user = User(user_id, username)
+                login_user(user)
+                flash(f'Account created successfully! Welcome, {username}!', 'success')
+                return redirect(url_for('index'))
+            except ValueError as e:
+                flash(str(e), 'error')
+    
+    return render_template('register.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    """User logout"""
+    logout_user()
+    flash('You have been logged out', 'success')
+    return redirect(url_for('login'))
+
+# Calendar Routes
+
 @app.route('/')
+@login_required
 def index():
     """Redirect to today's date."""
     today = datetime.now().strftime('%Y-%m-%d')
     return redirect(url_for('daily_view', date=today))
 
 @app.route('/calendar/<date>')
+@login_required
 def daily_view(date):
     """Display the daily calendar view for a specific date."""
     try:
@@ -138,11 +227,11 @@ def daily_view(date):
     prev_day = (current_date - timedelta(days=1)).strftime('%Y-%m-%d')
     next_day = (current_date + timedelta(days=1)).strftime('%Y-%m-%d')
     
-    # Load tags
-    tags = load_tags()
+    # Load tags for current user
+    tags = load_tags(current_user.id)
     
-    # Get events for this date
-    events = database.get_events_by_date(date)
+    # Get events for this date for current user
+    events = database.get_events_by_date(date, current_user.id)
     
     # Process events for timeline view
     processed_events = []
@@ -207,6 +296,7 @@ def daily_view(date):
                          tags=tags)
 
 @app.route('/add_event', methods=['POST'])
+@login_required
 def add_event():
     """Add a new event."""
     date = request.form.get('date')
@@ -228,7 +318,7 @@ def add_event():
         start_datetime_str = start_dt.strftime('%Y-%m-%d %H:%M:%S')
         end_datetime_str = end_dt.strftime('%Y-%m-%d %H:%M:%S')
         
-        database.add_event(start_datetime_str, end_datetime_str, title, description, tag)
+        database.add_event(start_datetime_str, end_datetime_str, title, description, tag, current_user.id)
     
     return redirect(url_for('daily_view', date=date))
 
@@ -289,7 +379,7 @@ def weekly_view(date):
     next_week = (sunday + timedelta(days=7)).strftime('%Y-%m-%d')
     
     # Load tags
-    tags = load_tags()
+    tags = load_tags(current_user.id)
     
     # Get events for all 7 days
     week_data = []
@@ -384,7 +474,7 @@ def stats_view(date):
     next_week = (sunday + timedelta(days=7)).strftime('%Y-%m-%d')
     
     # Load tags
-    tags = load_tags()
+    tags = load_tags(current_user.id)
     
     # Get tag hours for the week
     start_date = sunday.strftime('%Y-%m-%d')
@@ -453,9 +543,9 @@ def stats_view(date):
 
 
 @app.route('/import_ics', methods=['POST'])
+@login_required
 def import_ics():
-    """Import events from an uploaded .ics file."""
-    from flask import flash
+    """Import events from an ICS file."""
     
     # Get the uploaded file
     if 'ics_file' not in request.files:
@@ -471,42 +561,46 @@ def import_ics():
     
     # Verify it's an .ics file
     if not file.filename.endswith('.ics'):
-        flash('Please upload a valid .ics file', 'error')
+        flash('Please upload a .ics file', 'error')
         return redirect(request.referrer or url_for('index'))
     
     # Get the selected tag
     tag = request.form.get('import_tag', '')
     
     try:
-        # Read file content
-        file_content = file.read()
+        # Read and parse the ICS file
+        ics_content = file.read().decode('utf-8')
+        events = ics_parser.parse_ics(ics_content)
         
-        # Parse the ICS file
-        events = ics_parser.parse_ics_file(file_content)
-        
-        if not events:
-            flash('No events found in the file', 'warning')
-            return redirect(request.referrer or url_for('index'))
-        
-        # Import events to database
-        imported_count = database.bulk_add_events(events, tag)
+        # Import each event with the current user's ID
+        imported_count = 0
+        for event in events:
+            database.add_event(
+                event['start_datetime'],
+                event['end_datetime'],
+                event['title'],
+                event.get('description', ''),
+                tag,
+                current_user.id  # Assign to current user
+            )
+            imported_count += 1
         
         flash(f'Successfully imported {imported_count} events!', 'success')
         
-    except ValueError as e:
-        flash(f'Error parsing file: {str(e)}', 'error')
     except Exception as e:
-        flash(f'Error importing events: {str(e)}', 'error')
+        flash(f'Error importing file: {str(e)}', 'error')
     
     return redirect(request.referrer or url_for('index'))
 
 @app.route('/settings')
+@login_required
 def settings_view():
     """Render settings page with current tags"""
-    tags = load_tags()
+    tags = load_tags(current_user.id)
     return render_template('settings.html', tags=tags, today=datetime.now().strftime('%Y-%m-%d'))
 
 @app.route('/settings/tags/add', methods=['POST'])
+@login_required
 def add_tag_route():
     """Add a new tag"""
     name = request.form.get('name', '').strip()
@@ -517,7 +611,7 @@ def add_tag_route():
         return redirect(url_for('settings_view'))
     
     try:
-        database.add_tag(name, color)
+        database.add_tag(name, color, current_user.id)
         flash(f'Tag "{name}" added successfully!', 'success')
     except ValueError as e:
         flash(str(e), 'error')

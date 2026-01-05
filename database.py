@@ -14,6 +14,22 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
+    # Create users table if it doesn't exist
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+    users_table_exists = cursor.fetchone()
+    
+    if not users_table_exists:
+        cursor.execute('''
+            CREATE TABLE users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.commit()
+        print("Created users table")
+    
     # Check if old schema exists and migrate if needed
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='events'")
     table_exists = cursor.fetchone()
@@ -26,8 +42,16 @@ def init_db():
         if 'date' in columns and 'start_datetime' not in columns:
             # Migrate old schema to new schema
             migrate_schema(conn)
+            # Refresh column list after migration
+            cursor.execute("PRAGMA table_info(events)")
+            columns = [col[1] for col in cursor.fetchall()]
+        
+        # Check if we need to add user_id column
+        if 'user_id' not in columns:
+            print("Adding user authentication support...")
+            migrate_to_multiuser(conn)
     else:
-        # Create new schema
+        # Create new schema with user_id
         cursor.execute('''
             CREATE TABLE events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,7 +60,9 @@ def init_db():
                 title TEXT NOT NULL,
                 description TEXT,
                 tag TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                user_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
             )
         ''')
         conn.commit()
@@ -49,16 +75,26 @@ def init_db():
         cursor.execute('''
             CREATE TABLE tags (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
                 color TEXT NOT NULL,
                 order_index INTEGER NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                user_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                UNIQUE(name, user_id)
             )
         ''')
         conn.commit()
         
         # Initialize default tags or migrate from JSON
-        init_default_tags(conn)
+        # Note: will be called per-user on first login
+        pass
+    else:
+        # Check if we need to add user_id to tags
+        cursor.execute("PRAGMA table_info(tags)")
+        tag_columns = [col[1] for col in cursor.fetchall()]
+        if 'user_id' not in tag_columns:
+            migrate_tags_to_multiuser(conn)
     
     conn.close()
 
@@ -160,33 +196,139 @@ def migrate_schema(conn):
     
     conn.commit()
 
-def get_events_by_date(date):
-    """Get all events for a specific date (including multi-day events that overlap this date)."""
+def migrate_to_multiuser(conn):
+    """Migrate events table to support multiple users."""
+    from werkzeug.security import generate_password_hash
+    import secrets
+    cursor = conn.cursor()
+    
+    # Check if any events exist
+    cursor.execute('SELECT COUNT(*) FROM events')
+    event_count = cursor.fetchone()[0]
+    
+    # Check if any users exist
+    cursor.execute('SELECT COUNT(*) FROM users')
+    user_count = cursor.fetchone()[0]
+    
+    default_user_id = None
+    
+    if event_count > 0 and user_count == 0:
+        # Create default admin user for existing data
+        default_password = secrets.token_urlsafe(12)
+        password_hash = generate_password_hash(default_password, method='pbkdf2:sha256')
+        
+        cursor.execute(
+            'INSERT INTO users (username, password_hash) VALUES (?, ?)',
+            ('admin', password_hash)
+        )
+        default_user_id = cursor.lastrowid
+        conn.commit()
+        
+        print("\n" + "="*60)
+        print("IMPORTANT: Default admin account created for existing data")
+        print("="*60)
+        print(f"Username: admin")
+        print(f"Password: {default_password}")
+        print("\nPlease save these credentials! You can create additional")
+        print("users after logging in.")
+        print("="*60 + "\n")
+    elif user_count > 0:
+        # Use first existing user
+        cursor.execute('SELECT id FROM users LIMIT 1')
+        default_user_id = cursor.fetchone()[0]
+    
+    # Add user_id column to events
+    cursor.execute('ALTER TABLE events ADD COLUMN user_id INTEGER')
+    conn.commit()
+    
+    # Update existing events with default user
+    if default_user_id and event_count > 0:
+        cursor.execute('UPDATE events SET user_id = ?', (default_user_id,))
+        conn.commit()
+        print(f"Migrated {event_count} existing events to user 'admin'")
+
+def migrate_tags_to_multiuser(conn):
+    """Migrate tags table to support multiple users."""
+    cursor = conn.cursor()
+    
+    # Get default user (should exist from events migration)
+    cursor.execute('SELECT id FROM users ORDER BY id LIMIT 1')
+    user_row = cursor.fetchone()
+    
+    if not user_row:
+        print("Warning: No users found during tags migration")
+        return
+    
+    default_user_id = user_row[0]
+    
+    # Get count of existing tags
+    cursor.execute('SELECT COUNT(*) FROM tags')
+    tag_count = cursor.fetchone()[0]
+    
+    # Create new tags table with user_id
+    cursor.execute('''
+        CREATE TABLE tags_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            color TEXT NOT NULL,
+            order_index INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            UNIQUE(name, user_id)
+        )
+    ''')
+    
+    # Copy existing tags with default user_id
+    cursor.execute('''
+        INSERT INTO tags_new (id, name, color, order_index, user_id, created_at)
+        SELECT id, name, color, order_index, ?, created_at FROM tags
+    ''', (default_user_id,))
+    
+    # Drop old table and rename
+    cursor.execute('DROP TABLE tags')
+    cursor.execute('ALTER TABLE tags_new RENAME TO tags')
+    
+    conn.commit()
+    print(f"Migrated {tag_count} existing tags to user 'admin'")
+
+
+def get_events_by_date(date, user_id=None):
+    """Get all events for a specific date for a specific user."""
     conn = get_db_connection()
     
-    # Get events where the date falls between start and end datetime
-    # We need to consider events that start on this day, end on this day, or span across this day
     date_start = f"{date} 00:00:00"
     date_end = f"{date} 23:59:59"
     
-    events = conn.execute('''
-        SELECT * FROM events 
-        WHERE (start_datetime <= ? AND end_datetime >= ?)
-        OR (DATE(start_datetime) = ?)
-        OR (DATE(end_datetime) = ?)
-        ORDER BY start_datetime
-    ''', (date_end, date_start, date, date)).fetchall()
+    if user_id:
+        events = conn.execute('''
+            SELECT * FROM events 
+            WHERE user_id = ? AND (
+                (start_datetime <= ? AND end_datetime >= ?)
+                OR (DATE(start_datetime) = ?)
+                OR (DATE(end_datetime) = ?)
+            )
+            ORDER BY start_datetime
+        ''', (user_id, date_end, date_start, date, date)).fetchall()
+    else:
+        events = conn.execute('''
+            SELECT * FROM events 
+            WHERE (start_datetime <= ? AND end_datetime >= ?)
+            OR (DATE(start_datetime) = ?)
+            OR (DATE(end_datetime) = ?)
+            ORDER BY start_datetime
+        ''', (date_end, date_start, date, date)).fetchall()
     
     conn.close()
     return events
 
-def add_event(start_datetime, end_datetime, title, description='', tag=''):
+def add_event(start_datetime, end_datetime, title, description='', tag='', user_id=None):
     """Add a new event to the database."""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        'INSERT INTO events (start_datetime, end_datetime, title, description, tag) VALUES (?, ?, ?, ?, ?)',
-        (start_datetime, end_datetime, title, description, tag)
+        'INSERT INTO events (start_datetime, end_datetime, title, description, tag, user_id) VALUES (?, ?, ?, ?, ?, ?)',
+        (start_datetime, end_datetime, title, description, tag, user_id)
     )
     conn.commit()
     event_id = cursor.lastrowid
@@ -340,28 +482,31 @@ def get_tag_hours_for_week(start_date, end_date):
 
 # Tag Management Functions
 
-def get_all_tags():
-    """Get all tags ordered by order_index."""
+def get_all_tags(user_id=None):
+    """Get all tags for a specific user ordered by order_index."""
     conn = get_db_connection()
-    tags = conn.execute('SELECT * FROM tags ORDER BY order_index').fetchall()
+    if user_id:
+        tags = conn.execute('SELECT * FROM tags WHERE user_id = ? ORDER BY order_index', (user_id,)).fetchall()
+    else:
+        tags = conn.execute('SELECT * FROM tags ORDER BY order_index').fetchall()
     conn.close()
     return [dict(tag) for tag in tags]
 
-def add_tag(name, color, order_index=None):
-    """Add a new tag."""
+def add_tag(name, color, user_id, order_index=None):
+    """Add a new tag for a specific user."""
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # If no order specified, append to end
+    # If no order specified, append to end for this user
     if order_index is None:
-        cursor.execute('SELECT MAX(order_index) FROM tags')
+        cursor.execute('SELECT MAX(order_index) FROM tags WHERE user_id = ?', (user_id,))
         max_order = cursor.fetchone()[0]
         order_index = (max_order or 0) + 1
     
     try:
         cursor.execute(
-            'INSERT INTO tags (name, color, order_index) VALUES (?, ?, ?)',
-            (name, color, order_index)
+            'INSERT INTO tags (name, color, order_index, user_id) VALUES (?, ?, ?, ?)',
+            (name, color, order_index, user_id)
         )
         conn.commit()
         tag_id = cursor.lastrowid
@@ -441,6 +586,86 @@ def reorder_tags(tag_ids):
             'UPDATE tags SET order_index = ? WHERE id = ?',
             (index + 1, tag_id)
         )
+    
+    conn.commit()
+    conn.close()
+
+
+
+
+#  User Management Functions
+
+def create_user(username, password):
+    """Create a new user with hashed password."""
+    from werkzeug.security import generate_password_hash
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    password_hash = generate_password_hash(password, method='pbkdf2:sha256')
+    
+    try:
+        cursor.execute(
+            'INSERT INTO users (username, password_hash) VALUES (?, ?)',
+            (username, password_hash)
+        )
+        conn.commit()
+        user_id = cursor.lastrowid
+        
+        # Initialize default tags for new user
+        init_user_tags(user_id)
+        
+        conn.close()
+        return user_id
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise ValueError(f"Username '{username}' already exists")
+
+def get_user_by_id(user_id):
+    """Get user by ID."""
+    conn = get_db_connection()
+    user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+    conn.close()
+    return dict(user) if user else None
+
+def get_user_by_username(username):
+    """Get user by username."""
+    conn = get_db_connection()
+    user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+    conn.close()
+    return dict(user) if user else None
+
+def verify_password(user_id, password):
+    """Verify user's password."""
+    from werkzeug.security import check_password_hash
+    conn = get_db_connection()
+    user = conn.execute('SELECT password_hash FROM users WHERE id = ?', (user_id,)).fetchone()
+    conn.close()
+    
+    if user:
+        return check_password_hash(user['password_hash'], password)
+    return False
+
+def init_user_tags(user_id):
+    """Initialize default tags for a new user."""
+    default_tags = [
+        {"name": "Work", "color": "#007bff", "order": 1},
+        {"name": "Personal", "color": "##28a745", "order": 2},
+        {"name": "Social", "color": "#ffc107", "order": 3},
+        {"name": "Important", "color": "#dc3545", "order": 4}
+    ]
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    for tag in default_tags:
+        try:
+            cursor.execute(
+                'INSERT INTO tags (name, color, order_index, user_id) VALUES (?, ?, ?, ?)',
+                (tag['name'], tag['color'], tag['order'], user_id)
+            )
+        except sqlite3.IntegrityError:
+            # Tag already exists for this user, skip
+            pass
     
     conn.commit()
     conn.close()
