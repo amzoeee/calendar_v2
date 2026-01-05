@@ -14,13 +14,16 @@
             <div class="navigation">
                 <h1 class="date-title">Settings</h1>
 
-                <div style="display: flex; gap: 0.5rem;">
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
                     <a href="{{ url_for('daily_view', date=today) }}" class="nav-btn">Daily</a>
                     <a href="{{ url_for('weekly_view', date=today) }}" class="nav-btn">Weekly</a>
                     <a href="{{ url_for('stats_view', date=today) }}" class="nav-btn">Stats</a>
                     <a href="{{ url_for('settings_view') }}" class="nav-btn view-toggle">Settings</a>
-                    <button onclick="document.getElementById('import-modal').style.display='block'"
-                        class="nav-btn">Import ICS</button>
+                    <span
+                        style="margin-left: 1rem; padding-left: 1rem; border-left: 1px solid var(--border); color: var(--text-secondary); font-size: 0.9rem;">
+                        {{ current_user.username }}
+                    </span>
+                    <a href="{{ url_for('logout') }}" class="nav-btn">Logout</a>
                 </div>
             </div>
         </header>
@@ -71,6 +74,14 @@
                         <button type="submit" class="btn btn-primary">Add Tag</button>
                     </form>
                 </div>
+            </section>
+
+            <section class="settings-section">
+                <h2>Import Calendar</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">Import events from a Google Calendar .ics
+                    file</p>
+                <button onclick="document.getElementById('import-modal').style.display='block'"
+                    class="btn btn-primary">Import ICS File</button>
             </section>
 
             <!-- Edit Tag Modal -->

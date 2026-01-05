@@ -20,13 +20,16 @@
 
                 <h1 class="date-title">Week of {{ week_data[0].day_display }}</h1>
 
-                <div style="display: flex; gap: 0.5rem;">
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
                     <a href="{{ url_for('daily_view', date=sunday_date) }}" class="nav-btn">Daily</a>
                     <a href="{{ url_for('weekly_view', date=sunday_date) }}" class="nav-btn view-toggle">Weekly</a>
                     <a href="{{ url_for('stats_view', date=sunday_date) }}" class="nav-btn">Stats</a>
                     <a href="{{ url_for('settings_view') }}" class="nav-btn">Settings</a>
-                    <button onclick="document.getElementById('import-modal').style.display='block'"
-                        class="nav-btn">Import ICS</button>
+                    <span
+                        style="margin-left: 1rem; padding-left: 1rem; border-left: 1px solid var(--border); color: var(--text-secondary); font-size: 0.9rem;">
+                        {{ current_user.username }}
+                    </span>
+                    <a href="{{ url_for('logout') }}" class="nav-btn">Logout</a>
                 </div>
             </div>
 
