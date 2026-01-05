@@ -178,8 +178,8 @@ def register():
         # Validation
         if not username:
             flash('Username is required', 'error')
-        elif len(password) < 6:
-            flash('Password must be at least 6 characters', 'error')
+        elif not password:
+            flash('Password is required', 'error')
         elif password != confirm_password:
             flash('Passwords do not match', 'error')
         else:
