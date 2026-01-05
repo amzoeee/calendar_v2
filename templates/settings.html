@@ -23,7 +23,7 @@
                         style="margin-left: 1rem; padding-left: 1rem; border-left: 1px solid var(--border); color: var(--text-secondary); font-size: 0.9rem;">
                         {{ current_user.username }}
                     </span>
-                    <a href="{{ url_for('logout') }}" class="nav-btn">Logout</a>
+                    <a href="{{ url_for('logout') }}" class="nav-btn" style="margin-left: 0.5rem;">Logout</a>
                 </div>
             </div>
         </header>
@@ -86,7 +86,8 @@
 
             <section class="settings-section">
                 <h2>Export Calendar</h2>
-                <p style="color: var(--text-secondary); margin-bottom: 1rem;">Export your events as .ics files. Select a tag or choose "All Events" to download a zip with separate files per tag.</p>
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">Export your events as .ics files. Select a
+                    tag or choose "All Events" to download a zip with separate files per tag.</p>
                 <div class="form-row" style="align-items: flex-end;">
                     <div class="form-group" style="flex: 1;">
                         <label for="export-tag">Filter by Tag</label>
@@ -97,17 +98,18 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <button onclick="exportEvents()" class="btn btn-primary" style="margin-bottom: 1.5rem;">Export ICS File</button>
+                    <button onclick="exportEvents()" class="btn btn-primary" style="margin-bottom: 1.5rem;">Export ICS
+                        File</button>
                 </div>
             </section>
 
             <script>
-            function exportEvents() {
-                const tagSelect = document.getElementById('export-tag');
-                const tagId = tagSelect.value;
-                const url = tagId ? `/export_ics?tag=${tagId}` : '/export_ics';
-                window.location.href = url;
-            }
+                function exportEvents() {
+                    const tagSelect = document.getElementById('export-tag');
+                    const tagId = tagSelect.value;
+                    const url = tagId ? `/export_ics?tag=${tagId}` : '/export_ics';
+                    window.location.href = url;
+                }
             </script>
 
             <!-- Edit Tag Modal -->
