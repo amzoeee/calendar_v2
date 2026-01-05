@@ -178,10 +178,13 @@ def register():
         # Validation
         if not username:
             flash('Username is required', 'error')
+            return render_template('register.html', username=username)
         elif not password:
             flash('Password is required', 'error')
+            return render_template('register.html', username=username)
         elif password != confirm_password:
             flash('Passwords do not match', 'error')
+            return render_template('register.html', username=username)
         else:
             try:
                 user_id = database.create_user(username, password)
@@ -191,6 +194,7 @@ def register():
                 return redirect(url_for('index'))
             except ValueError as e:
                 flash(str(e), 'error')
+                return render_template('register.html', username=username)
     
     return render_template('register.html')
 
