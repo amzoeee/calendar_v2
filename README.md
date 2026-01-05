@@ -1,6 +1,6 @@
 # Flask Calendar App
 
-A simple, elegant Flask-based calendar application with daily view and persistent event storage.
+A Flask-based, multi-user calendar application with daily, weekly, and stats views and persistent event storage.
 
 ## Setup
 
@@ -17,20 +17,62 @@ A simple, elegant Flask-based calendar application with daily view and persisten
    pip install -r requirements.txt
    ```
 
-## Running the Application
+## Using the Application
 
-1. **Start the Flask development server**
+### Starting the App
+
+1. **Run the local server script**
    ```bash
-   python app.py
+   ./run_local.sh
    ```
+   This starts the Flask server and displays your local IP address for network access.
 
-2. **Open your browser**
-   Navigate to: `http://localhost:5002`
+2. **Access the app**
+   - From this computer: `http://localhost:5002`
+   - From other devices on your network: `http://[your-ip]:5002`
 
-3. **Start adding events!**
-   - The app will automatically redirect to today's date
-   - Use the navigation buttons to move between days
-   - Click "Today" to jump back to the current date
+### First Time Setup
+
+1. **Create an account** - Navigate to the registration page and create a username/password
+2. **Login** - Use your credentials to access your personal calendar
+
+### Managing Events
+
+**Creating Events**
+- Click on any time slot in the daily or weekly view to create a new event
+- Fill in the title, select a tag, and set start/end times
+- Events can span multiple days
+
+**Editing Events**
+- Click on an existing event to edit its details
+- Modify title, tag, or times as needed
+
+**Deleting Events**
+- Click on an event and select the delete option to remove it
+
+### Views
+
+**Daily View** - See all events for a single day with hourly time slots
+**Weekly View** - View 7 days at once to see your week at a glance  
+**Stats View** - Visualize how you spend time across different tags with bar charts
+**Settings** - Manage your tags (add, edit, delete, reorder) and import calendar files
+
+### Tag Management
+
+1. Navigate to **Settings**
+2. **Add tags** - Create custom tags with names and colors
+3. **Edit tags** - Change tag names or colors
+4. **Reorder tags** - Drag and drop tags to reorder them
+5. **Delete tags** - Remove tags (events with that tag become untagged)
+
+### Importing Calendars
+
+1. Go to **Settings**
+2. Click **Import ICS File**
+3. Select a `.ics` file from Google Calendar or other calendar apps
+4. Choose a tag to assign to all imported events
+5. Events will be added to your calendar
+
 
 ## Local Network Access
 
@@ -74,25 +116,6 @@ Look for "IPv4 Address" under your active network adapter.
 - **Want external access (outside your network)?**
   - Use ngrok: `brew install ngrok && ngrok http 5002`
   - Or configure port forwarding on your router (more complex)
-
-## Data Persistence
-
-All events are stored in a SQLite database file (`calendar.db`) which is created automatically when you first run the application. This database file persists between server restarts, so your events will always be there when you return!
-
-## Event Tags and Customization
-
-The application supports categorizing events with custom tags and colors.
-
-1.  **Customize Tags**: You can define your own tags in `tags.json`. Each tag has a `name`, a HEX `color`, and an `order` for display:
-    ```json
-    {
-        "tags": [
-            {"name": "Work", "color": "#007bff", "order": 1},
-            {"name": "Social", "color": "#ffc107", "order": 3}
-        ]
-    }
-    ```
-2.  **Auto-Generation**: To ensure the app works out of the box, `create_default_tags.py` automatically generates a default `tags.json` file if one doesn't exist when the server starts.
 
 ## Project Structure
 
