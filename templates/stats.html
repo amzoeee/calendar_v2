@@ -238,7 +238,7 @@
                     <a href="{{ url_for('stats_view', date=next_week) }}" class="nav-btn">→</a>
                 </div>
 
-                <h1 class="date-title">Weekly Stats</h1>
+                <h1 class="date-title">Stats for {{ week_start }} - {{ week_end }}</h1>
 
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
                     <a href="{{ url_for('daily_view', date=sunday_date) }}" class="nav-btn">Daily</a>
