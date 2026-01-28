@@ -511,11 +511,12 @@ def stats_view(date):
         
         current_day += timedelta(days=1)
     
-    # Calculate weekly averages per tag
+    # Calculate weekly averages per tag (excluding days with no data)
+    days_with_data = sum(1 for day in week_data if day['total'] > 0)
     tag_averages = {}
     for tag in all_tags_set:
         total = sum(day['hours'].get(tag, 0) for day in week_data)
-        tag_averages[tag] = total / 7.0
+        tag_averages[tag] = total / days_with_data if days_with_data > 0 else 0
     
     # Create tag color lookup dict
     tag_colors = {}
