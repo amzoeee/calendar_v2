@@ -477,6 +477,9 @@ def stats_view(date):
     prev_week = (sunday - timedelta(days=7)).strftime('%Y-%m-%d')
     next_week = (sunday + timedelta(days=7)).strftime('%Y-%m-%d')
     
+    # Check if weekdays_only filter is enabled
+    weekdays_only = request.args.get('weekdays_only', 'false').lower() == 'true'
+    
     # Load tags
     tags = load_tags(current_user.id)
     
@@ -506,16 +509,20 @@ def stats_view(date):
             'date': day_str,
             'day_name': day_name,
             'hours': day_hours,
-            'total': total_hours
+            'total': total_hours,
+            'is_weekend': current_day.weekday() >= 5  # Saturday=5, Sunday=6
         })
         
         current_day += timedelta(days=1)
     
+    # Filter to weekdays only for averages if requested
+    filtered_data_for_averages = [day for day in week_data if not day['is_weekend']] if weekdays_only else week_data
+    
     # Calculate weekly averages per tag (excluding days with no data)
-    days_with_data = sum(1 for day in week_data if day['total'] > 0)
+    days_with_data = sum(1 for day in filtered_data_for_averages if day['total'] > 0)
     tag_averages = {}
     for tag in all_tags_set:
-        total = sum(day['hours'].get(tag, 0) for day in week_data)
+        total = sum(day['hours'].get(tag, 0) for day in filtered_data_for_averages)
         tag_averages[tag] = total / days_with_data if days_with_data > 0 else 0
     
     # Create tag color lookup dict
@@ -546,7 +553,8 @@ def stats_view(date):
                          week_end=saturday.strftime('%b %d, %Y'),
                          today=datetime.now().strftime('%Y-%m-%d'),
                          prev_week=prev_week,
-                         next_week=next_week)
+                         next_week=next_week,
+                         weekdays_only=weekdays_only)
 
 
 @app.route('/import_ics', methods=['POST'])

@@ -216,14 +216,34 @@
                     return;
                 }
 
-                if (e.key === 'ArrowLeft') {
-                    // Navigate to previous week
-                    window.location.href = "{{ url_for('stats_view', date=prev_week) }}";
-                } else if (e.key === 'ArrowRight') {
-                    // Navigate to next week
-                    window.location.href = "{{ url_for('stats_view', date=next_week) }}";
-                }
-            });
+                const weekdaysOnly = {{ weekdays_only| tojson
+            }};
+
+
+        if (e.key === 'ArrowLeft') {
+            // Navigate to previous week
+            window.location.href = "{{ url_for('stats_view', date=prev_week) }}" + (weekdaysOnly ? '?weekdays_only=true' : '');
+        } else if (e.key === 'ArrowRight') {
+            // Navigate to next week
+            window.location.href = "{{ url_for('stats_view', date=next_week) }}" + (weekdaysOnly ? '?weekdays_only=true' : '');
+        }
+        });
+        });
+
+
+
+        // Scroll position preservation
+        window.addEventListener('beforeunload', function () {
+            localStorage.setItem('statsScrollPos', window.scrollY);
+        });
+
+        // Restore scroll position on page load
+        window.addEventListener('load', function () {
+            const savedPos = localStorage.getItem('statsScrollPos');
+            if (savedPos !== null) {
+                window.scrollTo(0, parseInt(savedPos));
+                localStorage.removeItem('statsScrollPos');
+            }
         });
     </script>
 </head>
@@ -233,12 +253,17 @@
         <header class="calendar-header">
             <div class="navigation">
                 <div style="display: flex; gap: 0.5rem;">
-                    <a href="{{ url_for('stats_view', date=prev_week) }}" class="nav-btn">←</a>
-                    <a href="{{ url_for('stats_view', date=today) }}" class="nav-btn">Today</a>
-                    <a href="{{ url_for('stats_view', date=next_week) }}" class="nav-btn">→</a>
+                    <a href="{{ url_for('stats_view', date=prev_week, weekdays_only='true' if weekdays_only else 'false') }}"
+                        class="nav-btn">←</a>
+                    <a href="{{ url_for('stats_view', date=today, weekdays_only='true' if weekdays_only else 'false') }}"
+                        class="nav-btn">Today</a>
+                    <a href="{{ url_for('stats_view', date=next_week, weekdays_only='true' if weekdays_only else 'false') }}"
+                        class="nav-btn">→</a>
                 </div>
 
-                <h1 class="date-title">Stats for {{ week_start }} - {{ week_end }}</h1>
+                <div>
+                    <h1 class="date-title" style="margin-bottom: 0;">Stats for {{ week_start }} - {{ week_end }}</h1>
+                </div>
 
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
                     <a href="{{ url_for('daily_view', date=sunday_date) }}" class="nav-btn">Daily</a>
@@ -367,7 +392,26 @@
         </div>
 
         <div class="averages-container">
-            <h3 class="averages-title">Weekly Averages</h3>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <h3 class="averages-title" style="margin-bottom: 0;">Weekly Averages</h3>
+                    {% if weekdays_only %}
+                    <span style="font-size: 0.85rem; color: var(--text-secondary);">(Weekdays Only)</span>
+                    {% endif %}
+                </div>
+                {% if weekdays_only %}
+                <a href="{{ url_for('stats_view', date=sunday_date, weekdays_only='false') }}"
+                    class="nav-btn view-toggle" title="Click to show all days"
+                    style="font-size: 0.85rem; background: var(--accent); color: white; font-weight: 500; padding: 0.4rem 0.75rem;">
+                    <span style="margin-right: 0.5rem;">●</span>Weekdays Only
+                </a>
+                {% else %}
+                <a href="{{ url_for('stats_view', date=sunday_date, weekdays_only='true') }}" class="nav-btn"
+                    title="Click to show weekdays only" style="font-size: 0.85rem; padding: 0.4rem 0.75rem;">
+                    <span style="margin-right: 0.5rem; opacity: 0.3;">○</span>Weekdays Only
+                </a>
+                {% endif %}
+            </div>
             <div class="averages-grid">
                 {% for tag in all_tags|sort %}
                 <div class="average-item">
