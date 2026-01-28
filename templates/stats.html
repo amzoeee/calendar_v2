@@ -207,6 +207,25 @@
             font-weight: 500;
         }
     </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Arrow key navigation
+            document.addEventListener('keydown', function (e) {
+                // Ignore if user is typing in an input field
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+                    return;
+                }
+
+                if (e.key === 'ArrowLeft') {
+                    // Navigate to previous week
+                    window.location.href = "{{ url_for('stats_view', date=prev_week) }}";
+                } else if (e.key === 'ArrowRight') {
+                    // Navigate to next week
+                    window.location.href = "{{ url_for('stats_view', date=next_week) }}";
+                }
+            });
+        });
+    </script>
 </head>
 
 <body>
