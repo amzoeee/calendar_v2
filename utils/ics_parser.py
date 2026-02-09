@@ -44,6 +44,15 @@ def parse_ics_file(file_content):
             description = component.get('description')
             event['description'] = str(description) if description else ''
             
+            # Extract RRULE for recurring events
+            rrule = component.get('rrule')
+            if rrule:
+                # Convert RRULE to proper RFC 5545 format string
+                # rrule.to_ical() returns bytes, decode to string
+                event['rrule'] = rrule.to_ical().decode('utf-8')
+            else:
+                event['rrule'] = None
+            
             # Extract start and end datetimes
             dtstart = component.get('dtstart')
             dtend = component.get('dtend')

@@ -122,11 +122,11 @@
             </section>
 
             <script>
-                func                    s() {
-                    const tagSelect = document.getE                    rt-tag');
-                    c                    Select.value;
-                    const url = tagId ? `/export_i                     : '/export_ics';
-                          ndhref = url;
+                function exportEvents() {
+                    const tagSelect = document.getElementById('export-tag');
+                    const tagId = tagSelect.value;
+                    const url = tagId ? `/export_ics?tag=${tagId}` : '/export_ics';
+                    window.location.href = url;
                 }
             </script>
 

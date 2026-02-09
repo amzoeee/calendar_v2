@@ -447,6 +447,14 @@ def bulk_add_events(events, tag=''):
     return imported_count
 
 
+def get_events_by_tag(tag_name):
+    """Get all events with a specific tag"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM events WHERE tag = ?', (tag_name,))
+    events = cursor.fetchall()
+    conn.close()
+    return [dict(event) for event in events]
 
 
 def get_tag_hours_for_week(start_date, end_date, user_id):

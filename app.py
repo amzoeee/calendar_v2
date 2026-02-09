@@ -6,7 +6,7 @@ import json
 import os
 from dotenv import load_dotenv
 
-from utils import ics_parser, ics_exporter
+from utils import ics_parser, ics_exporter, recurring_events
 
 # Load environment variables from .env file
 load_dotenv()
@@ -590,15 +590,30 @@ def import_ics():
         # Import each event with the current user's ID
         imported_count = 0
         for event in events:
-            database.add_event(
-                event['start_datetime'],
-                event['end_datetime'],
-                event['title'],
-                event.get('description', ''),
-                tag,
-                current_user.id  # Assign to current user
-            )
-            imported_count += 1
+            # Check if event has RRULE (recurring event)
+            if event.get('rrule'):
+                # Create recurring event series
+                _, count = recurring_events.create_recurring_event(
+                    event['start_datetime'],
+                    event['end_datetime'],
+                    event['title'],
+                    event.get('description', ''),
+                    tag,
+                    current_user.id,
+                    event['rrule']
+                )
+                imported_count += count
+            else:
+                # Create single event
+                database.add_event(
+                    event['start_datetime'],
+                    event['end_datetime'],
+                    event['title'],
+                    event.get('description', ''),
+                    tag,
+                    current_user.id  # Assign to current user
+                )
+                imported_count += 1
         
         flash(f'Successfully imported {imported_count} events!', 'success')
         
