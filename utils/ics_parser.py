@@ -48,8 +48,17 @@ def parse_ics_file(file_content):
             rrule = component.get('rrule')
             if rrule:
                 # Convert RRULE to proper RFC 5545 format string
-                # rrule.to_ical() returns bytes, decode to string
-                event['rrule'] = rrule.to_ical().decode('utf-8')
+                # rrule.to_ical() returns bytes with the properly formatted RRULE
+                try:
+                    rrule_str = rrule.to_ical().decode('utf-8')
+                    # Remove any "RRULE:" prefix if it exists
+                    if rrule_str.startswith('RRULE:'):
+                        rrule_str = rrule_str[6:]
+                    event['rrule'] = rrule_str
+                except:
+                    # Fallback: try to construct from the vRecur object directly
+                    # This handles cases where to_ical() fails
+                    event['rrule'] = str(rrule).replace('vRecur(', '').replace(')', '').strip()
             else:
                 event['rrule'] = None
             

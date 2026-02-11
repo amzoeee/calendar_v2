@@ -770,12 +770,14 @@ def get_events_api():
 @app.route('/export_ics')
 @login_required
 def export_ics():
-    """Export events as ICS file, optionally filtered by tag"""
+    """Export events as ICS file, optionally filtered by tag and date range"""
     from flask import make_response
     import io
     import zipfile
     
     tag_id = request.args.get('tag')
+    start_date = request.args.get('start_date')  # Format: YYYY-MM-DD
+    end_date = request.args.get('end_date')  # Format: YYYY-MM-DD
     tag_name_filter = None
     
     # Convert tag ID to tag name (events store tag name, not ID)
@@ -784,6 +786,87 @@ def export_ics():
         tag_obj = next((t for t in tags if str(t['id']) == str(tag_id)), None)
         if tag_obj:
             tag_name_filter = tag_obj['name']
+    
+    def filter_events_by_date(events, start_date, end_date):
+        """Filter events by date range, including only instances that fall within the range.
+        
+        For recurring events: include the master event (with RRULE) if any instances fall within range.
+        """
+        if not start_date and not end_date:
+            return events
+        
+        # Group events by recurrence_id
+        recurring_groups = {}  # recurrence_id -> list of events
+        standalone = []
+        
+        for event in events:
+            recurrence_id = event.get('recurrence_id')
+            if recurrence_id:
+                if recurrence_id not in recurring_groups:
+                    recurring_groups[recurrence_id] = []
+                recurring_groups[recurrence_id].append(event)
+            else:
+                standalone.append(event)
+        
+        filtered = []
+        
+        # Process standalone events
+        for event in standalone:
+            event_start = datetime.strptime(event['start_datetime'], '%Y-%m-%d %H:%M:%S')
+            event_end = datetime.strptime(event['end_datetime'], '%Y-%m-%d %H:%M:%S')
+            
+            # Check if event overlaps with the date range
+            include = True
+            if start_date:
+                range_start = datetime.strptime(f"{start_date} 00:00:00", '%Y-%m-%d %H:%M:%S')
+                if event_end < range_start:
+                    include = False
+            
+            if end_date and include:
+                range_end = datetime.strptime(f"{end_date} 23:59:59", '%Y-%m-%d %H:%M:%S')
+                if event_start > range_end:
+                    include = False
+            
+            if include:
+                filtered.append(event)
+        
+        # Process recurring event groups
+        # Include the master event (with RRULE) if any instance is in range
+        for recurrence_id, group in recurring_groups.items():
+            # Find master event (the one with RRULE)
+            master_event = None
+            instances_in_range = []
+            
+            for event in group:
+                if event.get('rrule'):
+                    master_event = event
+                
+                # Check if this instance is in range
+                event_start = datetime.strptime(event['start_datetime'], '%Y-%m-%d %H:%M:%S')
+                event_end = datetime.strptime(event['end_datetime'], '%Y-%m-%d %H:%M:%S')
+                
+                in_range = True
+                if start_date:
+                    range_start = datetime.strptime(f"{start_date} 00:00:00", '%Y-%m-%d %H:%M:%S')
+                    if event_end < range_start:
+                        in_range = False
+                
+                if end_date and in_range:
+                    range_end = datetime.strptime(f"{end_date} 23:59:59", '%Y-%m-%d %H:%M:%S')
+                    if event_start > range_end:
+                        in_range = False
+                
+                if in_range:
+                    instances_in_range.append(event)
+            
+            # If we have instances in range, include only the master event
+            if instances_in_range and master_event:
+                filtered.append(master_event)
+            elif instances_in_range:
+                # No master found, include the instances
+                filtered.extend(instances_in_range)
+        
+        return filtered
     
     # If no tag selected, create zip with separate ICS file per tag
     if not tag_name_filter:
@@ -795,9 +878,11 @@ def export_ics():
             for tag in tags:
                 # Get events for this tag
                 events = database.get_events_by_tag(current_user.id, tag['name'])
+                # Filter by date range
+                events = filter_events_by_date(events, start_date, end_date)
                 if events:  # Only include tags that have events
-                    # Generate ICS content
-                    ics_content = ics_exporter.generate_ics(events, calendar_name=tag['name'])
+                    # Generate ICS content with start_date and end_date for RRULE modification
+                    ics_content = ics_exporter.generate_ics(events, calendar_name=tag['name'], start_date=start_date, end_date=end_date)
                     # Add to zip with safe filename
                     filename = f"calendar-{tag['name'].replace(' ', '_')}.ics"
                     zip_file.writestr(filename, ics_content)
@@ -811,10 +896,12 @@ def export_ics():
     
     # Single tag export
     events = database.get_events_by_tag(current_user.id, tag_name_filter)
+    # Filter by date range
+    events = filter_events_by_date(events, start_date, end_date)
     filename = f"calendar-{tag_name_filter.replace(' ', '_')}.ics"
     
-    # Generate ICS content
-    ics_content = ics_exporter.generate_ics(events)
+    # Generate ICS content with start_date and end_date for RRULE modification
+    ics_content = ics_exporter.generate_ics(events, start_date=start_date, end_date=end_date)
     
     # Create response with proper headers
     response = make_response(ics_content)

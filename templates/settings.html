@@ -108,6 +108,14 @@
                     tag or choose "All Events" to download a zip with separate files per tag.</p>
                 <div class="form-row" style="align-items: flex-end; gap: 0.5rem;">
                     <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                        <label for="export-start-date">Start Date (optional)</label>
+                        <input type="date" id="export-start-date" name="export-start-date" class="form-control">
+                    </div>
+                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                        <label for="export-end-date">End Date (optional)</label>
+                        <input type="date" id="export-end-date" name="export-end-date" class="form-control">
+                    </div>
+                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
                         <label for="export-tag">Filter by Tag</label>
                         <select id="export-tag" name="export-tag" class="form-control">
                             <option value="">All Events</option>
@@ -124,8 +132,18 @@
             <script>
                 function exportEvents() {
                     const tagSelect = document.getElementById('export-tag');
+                    const startDate = document.getElementById('export-start-date').value;
+                    const endDate = document.getElementById('export-end-date').value;
+
                     const tagId = tagSelect.value;
-                    const url = tagId ? `/export_ics?tag=${tagId}` : '/export_ics';
+                    let url = '/export_ics?';
+
+                    const params = [];
+                    if (tagId) params.push(`tag=${tagId}`);
+                    if (startDate) params.push(`start_date=${startDate}`);
+                    if (endDate) params.push(`end_date=${endDate}`);
+
+                    url += params.join('&');
                     window.location.href = url;
                 }
             </script>
