@@ -81,13 +81,13 @@
                 <p style="color: var(--text-secondary); margin-bottom: 1rem;">Import events from a Google Calendar .ics
                     file</p>
                 <form action="{{ url_for('import_ics') }}" method="POST" enctype="multipart/form-data">
-                    <div class="form-row" style="align-items: flex-end; gap: 0;">
-                        <div class="form-group" style="flex: 1; margin-bottom: 0; margin-right: 0.75rem;">
+                    <div class="form-row" style="gap: 0.25rem;">
+                        <div class="form-group" style="width: 250px; margin-bottom: 0;">
                             <label for="import-file">ICS File</label>
                             <input type="file" id="import-file" name="ics_file" accept=".ics" required
-                                class="form-control" style="width: 100%; min-width: 250px;">
+                                class="form-control" style="width: 100%;">
                         </div>
-                        <div class="form-group" style="flex: 1; margin-bottom: 0; margin-right: 0;">
+                        <div class="form-group" style="width: 200px; margin-bottom: 0;">
                             <label for="import_tag">Assign Tag</label>
                             <select id="import_tag" name="import_tag" class="form-control">
                                 <option value="">No Tag</option>
@@ -96,8 +96,10 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <button type="submit" class="btn btn-primary" style="margin-left: 1rem;">Import ICS
-                            File</button>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>&nbsp;</label>
+                            <button type="submit" class="btn btn-primary">Import ICS File</button>
+                        </div>
                     </div>
                 </form>
             </section>
@@ -106,16 +108,8 @@
                 <h2>Export Calendar</h2>
                 <p style="color: var(--text-secondary); margin-bottom: 1rem;">Export your events as .ics files. Select a
                     tag or choose "All Events" to download a zip with separate files per tag.</p>
-                <div class="form-row" style="align-items: flex-end; gap: 0.5rem;">
-                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                        <label for="export-start-date">Start Date (optional)</label>
-                        <input type="date" id="export-start-date" name="export-start-date" class="form-control">
-                    </div>
-                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                        <label for="export-end-date">End Date (optional)</label>
-                        <input type="date" id="export-end-date" name="export-end-date" class="form-control">
-                    </div>
-                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                <div class="form-row" style="gap: 0.25rem;">
+                    <div class="form-group" style="flex: 1; max-width: 200px; margin-bottom: 0;">
                         <label for="export-tag">Filter by Tag</label>
                         <select id="export-tag" name="export-tag" class="form-control">
                             <option value="">All Events</option>
@@ -124,8 +118,18 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <button onclick="exportEvents()" class="btn btn-primary" style="margin-left: 1rem;">Export ICS
-                        File</button>
+                    <div class="form-group" style="width: 160px; margin-bottom: 0;">
+                        <label for="export-start-date">Start Date (optional)</label>
+                        <input type="date" id="export-start-date" name="export-start-date" class="form-control">
+                    </div>
+                    <div class="form-group" style="width: 160px; margin-bottom: 0;">
+                        <label for="export-end-date">End Date (optional)</label>
+                        <input type="date" id="export-end-date" name="export-end-date" class="form-control">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>&nbsp;</label>
+                        <button onclick="exportEvents()" class="btn btn-primary">Export ICS File</button>
+                    </div>
                 </div>
             </section>
 
