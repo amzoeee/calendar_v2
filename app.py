@@ -309,6 +309,8 @@ def add_event():
     tag = request.form.get('tag', '')
     start_datetime = request.form.get('start_datetime')
     end_datetime = request.form.get('end_datetime')
+    recurrence = request.form.get('recurrence', '')  # DAILY, WEEKLY, MONTHLY, or empty
+    recurrence_end_date = request.form.get('recurrence_end_date', '')
     
     if date and title and start_datetime and end_datetime:
         # Convert from datetime-local format to database format
@@ -322,7 +324,32 @@ def add_event():
         start_datetime_str = start_dt.strftime('%Y-%m-%d %H:%M:%S')
         end_datetime_str = end_dt.strftime('%Y-%m-%d %H:%M:%S')
         
-        database.add_event(start_datetime_str, end_datetime_str, title, description, tag, current_user.id)
+        # Check if recurring event
+        if recurrence:
+            # Build RRULE string
+            rrule_parts = [f'FREQ={recurrence}']
+            
+            if recurrence_end_date:
+                # Convert end date to UNTIL format (YYYYMMDD)
+                until_dt = datetime.strptime(recurrence_end_date, '%Y-%m-%d')
+                rrule_parts.append(f'UNTIL={until_dt.strftime("%Y%m%d")}')
+            
+            rrule = ';'.join(rrule_parts)
+            
+            # Create recurring event series
+            recurring_events.create_recurring_event(
+                start_datetime_str,
+                end_datetime_str,
+                title,
+                description,
+                tag,
+                current_user.id,
+                rrule
+            )
+            flash(f'Created recurring event', 'success')
+        else:
+            # Create single event
+            database.add_event(start_datetime_str, end_datetime_str, title, description, tag, current_user.id)
     
     return redirect(url_for('daily_view', date=date))
 
@@ -362,6 +389,41 @@ def delete_event(event_id):
     view_type = request.form.get('view', 'daily')
     
     database.delete_event(event_id)
+    
+    if view_type == 'weekly':
+        return redirect(url_for('weekly_view', date=date))
+    return redirect(url_for('daily_view', date=date))
+
+@app.route('/delete_recurring_series/<recurrence_id>', methods=['POST'])
+@login_required
+def delete_recurring_series(recurrence_id):
+    """Delete an entire recurring event series"""
+    date = request.form.get('date', datetime.now().strftime('%Y-%m-%d'))
+    view_type = request.form.get('view', 'daily')
+    
+    # Delete the series using the recurring_events module
+    recurring_events.delete_recurring_series(recurrence_id, current_user.id)
+    
+    flash('Recurring series deleted', 'success')
+    
+    if view_type == 'weekly':
+        return redirect(url_for('weekly_view', date=date))
+    return redirect(url_for('daily_view', date=date))
+
+@app.route('/update_recurring_series/<recurrence_id>', methods=['POST'])
+@login_required
+def update_recurring_series_route(recurrence_id):
+    """Update an entire recurring event series"""
+    date = request.form.get('date', datetime.now().strftime('%Y-%m-%d'))
+    view_type = request.form.get('view', 'daily')
+    title = request.form.get('title', '').strip() or '(no name)'
+    description = request.form.get('description', '')
+    tag = request.form.get('tag', '')
+    
+    # Update the series
+    count = recurring_events.update_recurring_series(recurrence_id, current_user.id, title, description, tag)
+    
+    flash(f'Updated {count} events in series', 'success')
     
     if view_type == 'weekly':
         return redirect(url_for('weekly_view', date=date))

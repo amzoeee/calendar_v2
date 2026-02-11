@@ -134,6 +134,26 @@
                         <textarea id="description" name="description" rows="2" placeholder="Optional"></textarea>
                     </div>
 
+                    <!-- Recurrence Options -->
+                    <div class="form-group">
+                        <label for="recurrence">Repeat</label>
+                        <select id="recurrence" name="recurrence" onchange="toggleRecurrenceOptions()">
+                            <option value="">Does not repeat</option>
+                            <option value="DAILY">Daily</option>
+                            <option value="WEEKLY">Weekly</option>
+                            <option value="MONTHLY">Monthly</option>
+                        </select>
+                    </div>
+
+                    <div id="recurrence-options" style="display: none;">
+                        <div class="form-group">
+                            <label for="recurrence_end_date">Repeat until</label>
+                            <input type="date" id="recurrence_end_date" name="recurrence_end_date">
+                            <small style="color: var(--text-secondary); display: block; margin-top: 0.25rem;">Leave
+                                blank to repeat indefinitely</small>
+                        </div>
+                    </div>
+
                     <button type="submit" class="btn btn-primary">Add Event</button>
                 </form>
             </section>
@@ -191,6 +211,8 @@
 
                             <div class="event-block-content">
                                 <span class="event-title">{{ event.title }}</span>
+                                {% if event.recurrence_id %}<span class="recurring-indicator" title="Recurring event"
+                                    style="opacity: 0.6; margin-left: 4px; font-size: 0.9em;">↻</span>{% endif %}
                                 <span class="event-time">, {{ event.start_time }} - {{ event.end_time }}</span>
                             </div>
 
@@ -232,18 +254,33 @@
                                         placeholder="Description">{{ event.description or '' }}</textarea>
 
                                     <div class="edit-actions">
+                                        {% if event.recurrence_id %}
+                                        <button type="button" class="btn btn-sm"
+                                            onclick="event.stopPropagation(); showEditRecurringModal({{ event.id }}, '{{ event.recurrence_id }}', '{{ date }}', this.closest('form'))">Save</button>
+                                        {% else %}
                                         <button type="submit" class="btn btn-sm">Save</button>
+                                        {% endif %}
                                         <button type="button"
                                             onclick="event.stopPropagation(); toggleEventEdit({{ event.id }})"
                                             class="btn btn-sm">Cancel</button>
                                     </div>
                                 </form>
+                                {% if event.recurrence_id %}
+                                <!-- Recurring event: Show delete options -->
+                                <button type="button" class="btn btn-sm btn-danger"
+                                    style="width: 100%; margin-top: 4px;"
+                                    onclick="event.stopPropagation(); showDeleteRecurringModal({{ event.id }}, '{{ event.recurrence_id }}', '{{date}}')">
+                                    Delete
+                                </button>
+                                {% else %}
+                                <!-- Single event: Simple delete -->
                                 <form action="{{ url_for('delete_event', event_id=event.id) }}" method="POST"
-                                    onclick="event.stopPropagation();" onsubmit="return confirm('Delete?');">
+                                    onclick="event.stopPropagation();" onsubmit="return confirm('Delete this event?');">
                                     <input type="hidden" name="date" value="{{ date }}">
                                     <button type="submit" class="btn btn-sm btn-danger"
                                         style="width: 100%; margin-top: 4px;">Delete</button>
                                 </form>
+                                {% endif %}
                             </div>
                         </div>
                         {% endfor %}
@@ -251,10 +288,157 @@
                 </div>
     </div>
     </section>
+
+    <!-- Delete Recurring Event Modal -->
+    <div id="delete-recurring-modal"
+        style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7);">
+        <div
+            style="background: var(--bg-secondary); margin: 15% auto; padding: 2rem; border-radius: 8px; width: 90%; max-width: 450px; border: 1px solid var(--border);">
+            <h2 style="margin-top: 0; color: var(--text-primary); margin-bottom: 1rem;">Delete Recurring Event</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">This is a recurring event. How would you
+                like to delete it?</p>
+
+            <form id="delete-instance-form" action="" method="POST" style="margin-bottom: 0.5rem;">
+                <input type="hidden" name="date" id="delete-instance-date">
+                <button type="submit" class="btn btn-danger" style="width: 100%;">Delete this event only</button>
+            </form>
+
+            <form id="delete-series-form" action="" method="POST" style="margin-bottom: 1rem;">
+                <input type="hidden" name="date" id="delete-series-date">
+                <button type="submit" class="btn btn-danger" style="width: 100%;">Delete entire series</button>
+            </form>
+
+            <button type="button" class="btn" style="width: 100%;" onclick="closeDeleteRecurringModal()">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Edit Recurring Event Modal -->
+    <div id="edit-recurring-modal"
+        style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7);">
+        <div
+            style="background: var(--bg-secondary); margin: 15% auto; padding: 2rem; border-radius: 8px; width: 90%; max-width: 450px; border: 1px solid var(--border);">
+            <h2 style="margin-top: 0; color: var(--text-primary); margin-bottom: 1rem;">Edit Recurring Event</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">This is a recurring event. How would you
+                like to edit it?</p>
+
+            <button type="button" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;"
+                onclick="saveEditInstance()">Edit this event only</button>
+            <button type="button" class="btn btn-primary" style="width: 100%; margin-bottom: 1rem;"
+                onclick="saveEditSeries()">Edit entire series</button>
+            <button type="button" class="btn" style="width: 100%;" onclick="closeEditRecurringModal()">Cancel</button>
+        </div>
+    </div>
+
     </main>
     </div>
 
     <script>
+        function showDeleteRecurringModal(eventId, recurrenceId, date) {
+            const modal = document.getElementById('delete-recurring-modal');
+            const instanceForm = document.getElementById('delete-instance-form');
+            const seriesForm = document.getElementById('delete-series-form');
+
+            // Set form actions
+            instanceForm.action = `/delete_event/${eventId}`;
+            seriesForm.action = `/delete_recurring_series/${recurrenceId}`;
+
+            // Set date fields
+            document.getElementById('delete-instance-date').value = date;
+            document.getElementById('delete-series-date').value = date;
+
+            modal.style.display = 'block';
+        }
+
+        function closeDeleteRecurringModal() {
+            document.getElementById('delete-recurring-modal').style.display = 'none';
+        }
+
+        function toggleRecurrenceOptions() {
+            const recurrence = document.getElementById('recurrence').value;
+            const options = document.getElementById('recurrence-options');
+            options.style.display = recurrence ? 'block' : 'none';
+        }
+
+        // Edit recurring event modal handlers
+        let currentEditForm = null;
+
+        function showEditRecurringModal(eventId, recurrenceId, date, form) {
+            currentEditForm = form;
+            document.getElementById('edit-recurring-modal').style.display = 'block';
+        }
+
+        function closeEditRecurringModal() {
+            document.getElementById('edit-recurring-modal').style.display = 'none';
+            currentEditForm = null;
+        }
+
+        function saveEditInstance() {
+            if (currentEditForm) {
+                // Submit normally - will just update this event
+                prepareEditForm(currentEditForm);
+                saveScrollPosition();
+                currentEditForm.submit();
+            }
+        }
+
+        function saveEditSeries() {
+            if (currentEditForm) {
+                const modal = document.getElementById('edit-recurring-modal');
+
+                // Get the recurrence_id from the modal trigger
+                const eventEditOverlay = currentEditForm.closest('.event-edit-overlay');
+                const saveButton = eventEditOverlay.querySelector('.edit-actions button[onclick*="showEditRecurringModal"]');
+
+                if (saveButton) {
+                    // Extract recurrence_id from onclick attribute
+                    // Format: showEditRecurringModal(123, 'recurrence-id', '2026-02-09', form)
+                    const onclickAttr = saveButton.getAttribute('onclick');
+                    const match = onclickAttr.match(/showEditRecurringModal\((\d+),\s*'([^']+)',\s*'([^']+)'/);
+                    if (match && match.length >= 4) {
+                        const recurrenceId = match[2];  // Second capture group
+                        const date = match[3];  // Third capture group
+
+                        // Create a new form to submit to update_recurring_series
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = `/update_recurring_series/${recurrenceId}`;
+
+                        // Copy form data from current edit form
+                        const title = currentEditForm.querySelector('[name="title"]').value;
+                        const description = currentEditForm.querySelector('[name="description"]').value;
+                        const tag = currentEditForm.querySelector('[name="tag"]').value;
+
+                        // Detect current view from URL
+                        const currentView = window.location.pathname.includes('/weekly/') ? 'weekly' : 'daily';
+
+                        // Add fields
+                        const fields = {
+                            'title': title,
+                            'description': description,
+                            'tag': tag,
+                            'date': date,
+                            'view': currentView
+                        };
+
+                        for (const [name, value] of Object.entries(fields)) {
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = name;
+                            input.value = value;
+                            form.appendChild(input);
+                        }
+
+                        // Save scroll position and submit
+                        saveScrollPosition();
+                        document.body.appendChild(form);
+                        form.submit();
+                    }
+                }
+
+                closeEditRecurringModal();
+            }
+        }
+
         function toggleEventEdit(eventId, clickEvent) {
             // Close all other overlays
             document.querySelectorAll('.event-block.editing').forEach(el => {
@@ -394,9 +578,30 @@
                         e.preventDefault();
                         const form = overlay.querySelector('.event-edit-form');
                         if (form) {
+                            // Enter always edits single instance directly (no modal)
                             prepareEditForm(form);
                             saveScrollPosition();
                             form.submit();
+                        }
+                    }
+                } else if (e.key === 'Enter' && e.shiftKey) {
+                    // Shift+Enter: Edit entire series for recurring events
+                    if (e.target.tagName !== 'TEXTAREA') {
+                        e.preventDefault();
+                        const form = overlay.querySelector('.event-edit-form');
+                        if (form) {
+                            // Check if this has a recurring save button
+                            const saveButton = overlay.querySelector('.edit-actions button[onclick*="showEditRecurringModal"]');
+                            if (saveButton) {
+                                // This is a recurring event - trigger "edit series"
+                                currentEditForm = form;
+                                saveEditSeries();
+                            } else {
+                                // Not a recurring event - just submit normally
+                                prepareEditForm(form);
+                                saveScrollPosition();
+                                form.submit();
+                            }
                         }
                     }
                 } else if (e.key === 'Delete' || e.key === 'Backspace') {

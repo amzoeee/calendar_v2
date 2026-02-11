@@ -219,6 +219,39 @@ def delete_recurring_series(recurrence_id, user_id):
     return count
 
 
+def update_recurring_series(recurrence_id, user_id, title, description, tag):
+    """Update all events in a recurring series with new title/description/tag.
+    
+    Args:
+        recurrence_id: Recurrence ID
+        user_id: User ID for security check
+        title: New title
+        description: New description
+        tag: New tag
+    
+    Returns:
+        Number of events updated
+    """
+    import database
+    
+    conn = database.get_db_connection()
+    cursor = conn.cursor()
+    
+    # Update all events in series
+    cursor.execute(
+        '''UPDATE events 
+           SET title = ?, description = ?, tag = ?
+           WHERE recurrence_id = ? AND user_id = ?''',
+        (title, description, tag, recurrence_id, user_id)
+    )
+    
+    count = cursor.rowcount
+    conn.commit()
+    conn.close()
+    
+    return count
+
+
 def build_rrule_string(freq, interval=1, count=None, until=None, byday=None, bymonthday=None):
     """Build an RRULE string from parameters.
     
