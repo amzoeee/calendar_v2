@@ -161,7 +161,7 @@
                                         data-start-minutes="{{ event.start_minutes }}"
                                         data-duration-minutes="{{ event.duration }}" data-title="{{ event.title }}"
                                         data-start-time="{{ event.start_time }}" data-end-time="{{ event.end_time }}"
-                                        onclick="toggleEventEdit({{ event.id }})">
+                                        onclick="toggleEventEdit({{ event.id }}, event)">
 
                                         <div class="event-block-content">
                                             <span class="event-title">{{ event.title }}</span>
@@ -237,7 +237,7 @@
     </div>
 
     <script>
-        function toggleEventEdit(eventId) {
+        function toggleEventEdit(eventId, clickEvent) {
             // Close all other overlays
             document.querySelectorAll('.event-block.editing').forEach(el => {
                 if (el.querySelector(`#edit-overlay-${eventId}`) === null) {
@@ -256,6 +256,34 @@
 
                 if (isHidden) {
                     eventBlock.classList.add('editing');
+
+                    // Position overlay at click location, clamped to scrollable container
+                    if (clickEvent) {
+                        const rect = eventBlock.getBoundingClientRect();
+                        const clickX = clickEvent.clientX - rect.left;
+                        const clickY = clickEvent.clientY - rect.top;
+
+                        // Measure overlay size
+                        overlay.style.left = '0';
+                        overlay.style.top = '0';
+                        const overlayW = overlay.offsetWidth;
+                        const overlayH = overlay.offsetHeight;
+
+                        // Clamp to the visible area of the scrollable container
+                        const container = document.querySelector('.weekly-timeline-wrapper');
+                        const cRect = container.getBoundingClientRect();
+
+                        // Max offset so overlay stays within the container's visible area
+                        const maxLeft = (cRect.left + container.clientWidth) - rect.left - overlayW;
+                        const maxTop = (cRect.top + container.clientHeight) - rect.top - overlayH;
+
+                        overlay.style.left = Math.min(clickX, maxLeft) + 'px';
+                        overlay.style.top = Math.min(clickY, maxTop) + 'px';
+                    } else {
+                        overlay.style.left = '0';
+                        overlay.style.top = '0';
+                    }
+
                     // Set up keyboard shortcuts for this overlay
                     setupOverlayKeyboardShortcuts(overlay, eventId);
                     // Set up click outside to close

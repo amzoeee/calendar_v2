@@ -459,15 +459,29 @@
                 if (isHidden) {
                     eventBlock.classList.add('editing');
 
-                    // Position overlay at click location
+                    // Position overlay at click location, clamped to scrollable container
                     if (clickEvent) {
                         const rect = eventBlock.getBoundingClientRect();
                         const clickX = clickEvent.clientX - rect.left;
                         const clickY = clickEvent.clientY - rect.top;
-                        overlay.style.left = clickX + 'px';
-                        overlay.style.top = clickY + 'px';
+
+                        // Measure overlay size
+                        overlay.style.left = '0';
+                        overlay.style.top = '0';
+                        const overlayW = overlay.offsetWidth;
+                        const overlayH = overlay.offsetHeight;
+
+                        // Clamp to the visible area of the scrollable container
+                        const container = document.getElementById('timeline-container');
+                        const cRect = container.getBoundingClientRect();
+
+                        // Max offset so overlay stays within the container's visible area
+                        const maxLeft = (cRect.left + container.clientWidth) - rect.left - overlayW;
+                        const maxTop = (cRect.top + container.clientHeight) - rect.top - overlayH;
+
+                        overlay.style.left = Math.min(clickX, maxLeft) + 'px';
+                        overlay.style.top = Math.min(clickY, maxTop) + 'px';
                     } else {
-                        // Reset to top-left when navigating via keyboard
                         overlay.style.left = '0';
                         overlay.style.top = '0';
                     }
