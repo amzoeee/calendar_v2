@@ -242,8 +242,7 @@ body {
 /* Timeline */
 .timeline-container {
     position: relative;
-    height: 1440px;
-    /* Full day visible */
+    height: calc(100vh - 100px);
     overflow-y: auto;
     background: var(--bg-primary);
     border: 1px solid var(--border);
@@ -286,7 +285,7 @@ body {
 .weekly-timeline-wrapper {
     position: relative;
     display: flex;
-    height: 600px;
+    height: calc(100vh - 100px);
     overflow-y: auto;
     border: 1px solid var(--border);
     border-top: none;
