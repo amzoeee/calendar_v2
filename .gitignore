@@ -1,3 +1,5 @@
+test_log.txt
+
 # Python cache
 __pycache__/
 *.py[cod]
