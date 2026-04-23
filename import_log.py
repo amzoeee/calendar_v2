@@ -10,7 +10,7 @@ Usage:
 
 Flags:
   --date       (Required) The date to align these events with (format: YYYY-MM-DD).
-  --file       (Optional) Path to your Discord text log. If omitted, reads from standard input.
+  --file       (Optional) Path to your text log. If omitted, reads from standard input.
   --user-id    (Optional) The numeric ID of the user account to insert events for (default is 1).
   --dry-run    (Optional) Previews the parsed events in the terminal without inserting them into the database.
 """
