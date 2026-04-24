@@ -6,13 +6,14 @@ calendar events, figuring out chronological alignment, AM/PM boundaries,
 and predicting tags based on your previous calendar data.
 
 Usage:
-  python3 import_log.py --date <YYYY-MM-DD> --file <path_to_log.txt>
+  python3 import_log.py [--date <YYYY-MM-DD>] --file <path_to_log.txt>
 
 Flags:
-  --date       (Required) The date to align these events with (format: YYYY-MM-DD).
+  --date       (Optional) The date to align these events with (format: YYYY-MM-DD). Defaults to today.
   --file       (Optional) Path to your text log. If omitted, reads from standard input.
   --user-id    (Optional) The numeric ID of the user account to insert events for (default is 1).
   --dry-run    (Optional) Previews the parsed events in the terminal without inserting them into the database.
+  --continue   (Optional) If you already have events on the target day, use this flag to start scheduling immediately after your latest event.
 """
 
 import sqlite3
@@ -72,33 +73,53 @@ def predict_tag(cursor, title, user_id):
     row = cursor.fetchone()
     return row[0] if row else None
 
-def get_last_event_end_time(cursor, user_id, target_date_str):
+def get_last_event_end_time(cursor, user_id, target_date_str, continue_from_latest=False):
     target_dt = datetime.strptime(target_date_str, '%Y-%m-%d')
     midnight = datetime(target_dt.year, target_dt.month, target_dt.day)
     prev_midnight = midnight - timedelta(days=1)
     
+    # Choose boundary based on whether we're continuing the day or starting fresh
+    limit_date_str = f"{target_date_str} 23:59:59" if continue_from_latest else f"{target_date_str} 00:00:00"
+
     cursor.execute("""
         SELECT end_datetime 
         FROM events 
-        WHERE user_id = ? AND end_datetime <= ?
+        WHERE user_id = ? AND start_datetime < ?
         ORDER BY end_datetime DESC 
         LIMIT 1
-    """, (user_id, f"{target_date_str} 23:59:59"))
+    """, (user_id, limit_date_str))
     row = cursor.fetchone()
     if row:
         dt = datetime.strptime(row[0], '%Y-%m-%d %H:%M:%S')
-        # Only use the DB end time if it occurred on the previous day or target day
-        if dt >= prev_midnight:
+        if continue_from_latest:
             return dt
+        else:
+            # Only use the DB end time if it occurred on the previous day
+            if dt >= prev_midnight:
+                return dt
     # If no recent event, start at midnight of the target date
     return midnight
 
+def get_existing_events(cursor, user_id, target_date_str):
+    """Retrieve all existing events for the target date to avoid overlapping."""
+    cursor.execute("""
+        SELECT start_datetime, end_datetime 
+        FROM events 
+        WHERE user_id = ? 
+        AND ((start_datetime >= ? AND start_datetime <= ?) OR (end_datetime > ? AND end_datetime <= ?))
+        ORDER BY start_datetime
+    """, (user_id, f"{target_date_str} 00:00:00", f"{target_date_str} 23:59:59", 
+          f"{target_date_str} 00:00:00", f"{target_date_str} 23:59:59"))
+    return [{'start': datetime.strptime(r[0], '%Y-%m-%d %H:%M:%S'),
+             'end': datetime.strptime(r[1], '%Y-%m-%d %H:%M:%S')} for r in cursor.fetchall()]
+
 def main():
     parser = argparse.ArgumentParser(description="Import discord log into calendar events.")
-    parser.add_argument('--date', required=True, help="The target date (YYYY-MM-DD)")
+    parser.add_argument('--date', default=datetime.now().strftime('%Y-%m-%d'), help="The target date (YYYY-MM-DD), defaults to today")
     parser.add_argument('--file', help="Path to the log file (reads from stdin if not provided)")
     parser.add_argument('--user-id', type=int, default=DEFAULT_USER_ID, help="User ID to import events for")
     parser.add_argument('--dry-run', action='store_true', help="Preview events without inserting")
+    parser.add_argument('--continue', dest='continue_flag', action='store_true', help="Continue scheduling after your latest event on the target day")
     args = parser.parse_args()
 
     lines = []
@@ -121,7 +142,6 @@ def main():
         if match:
             time_str = match.group(1)
             title = match.group(2)
-            # Validate it's actually a valid time shorthand
             parsed = parse_shorthand_time(time_str)
             if parsed is not None:
                 activities.append((time_str, title))
@@ -133,8 +153,9 @@ def main():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # Find base time from database
-    base_time = get_last_event_end_time(cursor, args.user_id, args.date)
+    existing_events = get_existing_events(cursor, args.user_id, args.date)
+
+    base_time = get_last_event_end_time(cursor, args.user_id, args.date, continue_from_latest=args.continue_flag)
     print(f"Starting after previous event end time: {base_time.strftime('%Y-%m-%d %I:%M %p')}\n")
 
     events_to_insert = []
@@ -146,16 +167,26 @@ def main():
     for time_str, title in activities:
         hour, minute = parse_shorthand_time(time_str)
         end_time = get_next_occurrence(current_time, hour, minute)
-        tag = predict_tag(cursor, title, args.user_id)
         
-        events_to_insert.append({
-            'start': current_time,
-            'end': end_time,
-            'title': title,
-            'tag': tag or ''
-        })
+        # Compute start time by sliding it forward past any overlapping existing events
+        start_time = current_time
+        for e in existing_events:
+            if e['start'] < end_time and e['end'] > start_time:
+                # If existing event entirely consumes the new end time, push start_time to end_time so it is skipped
+                start_time = max(start_time, min(end_time, e['end']))
         
-        print(f"{current_time.strftime('%Y-%m-%d %I:%M %p'):<22} | {end_time.strftime('%Y-%m-%d %I:%M %p'):<22} | {tag or '':<15} | {title}")
+        # Output or skip
+        if start_time < end_time:
+            tag = predict_tag(cursor, title, args.user_id)
+            events_to_insert.append({
+                'start': start_time,
+                'end': end_time,
+                'title': title,
+                'tag': tag or ''
+            })
+            print(f"{start_time.strftime('%Y-%m-%d %I:%M %p'):<22} | {end_time.strftime('%Y-%m-%d %I:%M %p'):<22} | {tag or '':<15} | {title}")
+        
+        # Always advance current_time to the logical end of this task block (as that's the chronological step)
         current_time = end_time
 
     if not args.dry_run:
