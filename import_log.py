@@ -113,6 +113,19 @@ def get_existing_events(cursor, user_id, target_date_str):
     return [{'start': datetime.strptime(r[0], '%Y-%m-%d %H:%M:%S'),
              'end': datetime.strptime(r[1], '%Y-%m-%d %H:%M:%S')} for r in cursor.fetchall()]
 
+def has_non_repeating_events(cursor, user_id, target_date_str):
+    """Check if there are any non-repeating events on the specified date."""
+    cursor.execute("""
+        SELECT COUNT(*) 
+        FROM events 
+        WHERE user_id = ? 
+        AND ((start_datetime >= ? AND start_datetime <= ?) OR (end_datetime > ? AND end_datetime <= ?))
+        AND (recurrence_id IS NULL OR recurrence_id = '')
+        AND (rrule IS NULL OR rrule = '')
+    """, (user_id, f"{target_date_str} 00:00:00", f"{target_date_str} 23:59:59", 
+          f"{target_date_str} 00:00:00", f"{target_date_str} 23:59:59"))
+    return cursor.fetchone()[0] > 0
+
 def main():
     parser = argparse.ArgumentParser(description="Import discord log into calendar events.")
     parser.add_argument('--date', default=datetime.now().strftime('%Y-%m-%d'), help="The target date (YYYY-MM-DD), defaults to today")
@@ -152,6 +165,11 @@ def main():
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+
+    # Automatically set continue_flag if there are already non-repeating events logged for today
+    if not args.continue_flag and has_non_repeating_events(cursor, args.user_id, args.date):
+        args.continue_flag = True
+        print("Note: Automatically enabled continue mode because existing logged activities were found on this day.")
 
     existing_events = get_existing_events(cursor, args.user_id, args.date)
 
