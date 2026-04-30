@@ -88,6 +88,8 @@ def get_last_event_end_time(cursor, user_id, target_date_str, continue_from_late
         SELECT end_datetime 
         FROM events 
         WHERE user_id = ? AND start_datetime < ?
+        AND (recurrence_id IS NULL OR recurrence_id = '')
+        AND (rrule IS NULL OR rrule = '')
         ORDER BY end_datetime DESC 
         LIMIT 1
     """, (user_id, limit_date_str))
