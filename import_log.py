@@ -63,13 +63,16 @@ def get_next_occurrence(base_dt, hour, minute):
     return options[0]
 
 def predict_tag(cursor, title, user_id):
+    # Strip leading bracketed prefixes for the sake of tag prediction
+    search_title = re.sub(r'^\[.*?\]\s*', '', title).strip()
+    
     cursor.execute("""
         SELECT tag 
         FROM events 
         WHERE user_id = ? AND lower(title) = ? AND tag IS NOT NULL AND tag != ''
         ORDER BY start_datetime DESC 
         LIMIT 1
-    """, (user_id, title.lower()))
+    """, (user_id, search_title.lower()))
     row = cursor.fetchone()
     return row[0] if row else None
 
