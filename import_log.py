@@ -105,16 +105,17 @@ def get_last_event_end_time(cursor, user_id, target_date_str, continue_from_late
     # If no recent event, start at midnight of the target date
     return midnight
 
-def get_existing_events(cursor, user_id, target_date_str):
-    """Retrieve all existing events for the target date to avoid overlapping."""
+def get_existing_events_for_range(cursor, user_id, start_dt, end_dt):
+    """Retrieve all existing events overlapping the specified time span to avoid overlapping."""
+    start_str = start_dt.strftime('%Y-%m-%d 00:00:00')
+    end_str = end_dt.strftime('%Y-%m-%d 23:59:59')
     cursor.execute("""
         SELECT start_datetime, end_datetime 
         FROM events 
         WHERE user_id = ? 
         AND ((start_datetime >= ? AND start_datetime <= ?) OR (end_datetime > ? AND end_datetime <= ?))
         ORDER BY start_datetime
-    """, (user_id, f"{target_date_str} 00:00:00", f"{target_date_str} 23:59:59", 
-          f"{target_date_str} 00:00:00", f"{target_date_str} 23:59:59"))
+    """, (user_id, start_str, end_str, start_str, end_str))
     return [{'start': datetime.strptime(r[0], '%Y-%m-%d %H:%M:%S'),
              'end': datetime.strptime(r[1], '%Y-%m-%d %H:%M:%S')} for r in cursor.fetchall()]
 
@@ -176,8 +177,6 @@ def main():
         args.continue_flag = True
         print("Note: Automatically enabled continue mode because existing logged activities were found on this day.")
 
-    existing_events = get_existing_events(cursor, args.user_id, args.date)
-
     base_time = get_last_event_end_time(cursor, args.user_id, args.date, continue_from_latest=args.continue_flag)
     print(f"Starting after previous event end time: {base_time.strftime('%Y-%m-%d %I:%M %p')}\n")
 
@@ -190,6 +189,9 @@ def main():
     for time_str, title in activities:
         hour, minute = parse_shorthand_time(time_str)
         end_time = get_next_occurrence(current_time, hour, minute)
+        
+        # Fetch existing events that span the date(s) of this activity
+        existing_events = get_existing_events_for_range(cursor, args.user_id, current_time, end_time)
         
         # Compute start time by sliding it forward past any overlapping existing events
         start_time = current_time
