@@ -17,6 +17,16 @@ A Flask-based, multi-user calendar application with daily, weekly, and stats vie
    pip install -r requirements.txt
    ```
 
+4. **Set up environment variables**
+   Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+   Open `.env` and replace the placeholder `SECRET_KEY` with a random string. You can generate a secure random string using:
+   ```bash
+   python3 -c "import secrets; print(secrets.token_hex(32))"
+   ```
+
 ## Using the Application
 
 ### Starting the App
