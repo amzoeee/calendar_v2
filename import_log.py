@@ -26,8 +26,8 @@ import sys
 DB_NAME = 'calendar.db'
 DEFAULT_USER_ID = 1
 
-def parse_shorthand_time(time_str):
-    """Convert '1230', '135', '9' into (hour, minute)."""
+def parse_shorthand_time(time_str, ampm=None):
+    """Convert '1230', '135', '9' into (hour, minute, exact_24h)."""
     if len(time_str) <= 2:
         hour, minute = int(time_str), 0
     elif len(time_str) == 3:
@@ -37,24 +37,48 @@ def parse_shorthand_time(time_str):
     else:
         return None
 
-    # Validate logical 12-hour values
-    if 1 <= hour <= 12 and 0 <= minute <= 59:
-        return hour, minute
-    return None
+    # Validate logical 12-hour or 24-hour values
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return None
 
-def get_next_occurrence(base_dt, hour, minute):
-    """Find the next occurrence of a 12-hour (hour:minute) after base_dt."""
-    # Convert 12-hour to 24-hour variants
-    # If hour is 12, the 24h variants are 0 (midnight) and 12 (noon)
-    h_am = 0 if hour == 12 else hour
-    h_pm = 12 if hour == 12 else hour + 12
+    exact_24h = None
+    if ampm:
+        ampm = ampm.lower()
+        if ampm == 'am':
+            if hour == 12:
+                exact_24h = 0
+            elif hour < 12:
+                exact_24h = hour
+            else:
+                exact_24h = hour
+        elif ampm == 'pm':
+            if hour == 12:
+                exact_24h = 12
+            elif hour < 12:
+                exact_24h = hour + 12
+            else:
+                exact_24h = hour
+    elif hour == 0 or hour > 12:
+        exact_24h = hour
+    elif len(time_str) == 4 and time_str.startswith('0'):
+        exact_24h = hour
 
+    return hour, minute, exact_24h
+
+def get_next_occurrence(base_dt, hour, minute, exact_24h=None):
+    """Find the next occurrence of a time after base_dt."""
     options = []
     # Check today and tomorrow
     for day_offset in range(3):
         cur_date = base_dt.date() + timedelta(days=day_offset)
-        options.append(datetime(cur_date.year, cur_date.month, cur_date.day, h_am, minute))
-        options.append(datetime(cur_date.year, cur_date.month, cur_date.day, h_pm, minute))
+        if exact_24h is not None:
+            options.append(datetime(cur_date.year, cur_date.month, cur_date.day, exact_24h, minute))
+        else:
+            # Convert 12-hour to 24-hour variants
+            h_am = 0 if hour == 12 else hour
+            h_pm = 12 if hour == 12 else hour + 12
+            options.append(datetime(cur_date.year, cur_date.month, cur_date.day, h_am, minute))
+            options.append(datetime(cur_date.year, cur_date.month, cur_date.day, h_pm, minute))
     
     # Filter options > base_dt and sort
     options = [opt for opt in options if opt > base_dt]
@@ -156,14 +180,15 @@ def main():
         if not line or line.startswith('zoe —') or line.startswith('zoe -'):
             continue
         
-        # Match standard line starting with 1-4 digits
-        match = re.match(r'^(\d{1,4})\s+(.+)$', line)
+        # Match standard line starting with 1-4 digits, optional am/pm
+        match = re.match(r'^(\d{1,4})\s*(am|pm)?\s+(.+)$', line, re.IGNORECASE)
         if match:
             time_str = match.group(1)
-            title = match.group(2)
-            parsed = parse_shorthand_time(time_str)
+            ampm = match.group(2)
+            title = match.group(3)
+            parsed = parse_shorthand_time(time_str, ampm)
             if parsed is not None:
-                activities.append((time_str, title))
+                activities.append((time_str, ampm, title))
 
     if not activities:
         print("No valid activities found.")
@@ -186,9 +211,9 @@ def main():
     print(f"{'Start Time':<22} | {'End Time':<22} | {'Tag':<15} | Title")
     print("-" * 80)
 
-    for time_str, title in activities:
-        hour, minute = parse_shorthand_time(time_str)
-        end_time = get_next_occurrence(current_time, hour, minute)
+    for time_str, ampm, title in activities:
+        hour, minute, exact_24h = parse_shorthand_time(time_str, ampm)
+        end_time = get_next_occurrence(current_time, hour, minute, exact_24h)
         
         # Fetch existing events that span the date(s) of this activity
         existing_events = get_existing_events_for_range(cursor, args.user_id, current_time, end_time)
