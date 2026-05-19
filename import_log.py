@@ -26,6 +26,38 @@ import sys
 DB_NAME = 'calendar.db'
 DEFAULT_USER_ID = 1
 
+def parse_discord_date(line):
+    """Parse Discord timestamp line to YYYY-MM-DD string."""
+    match = re.match(r'^.*?\s*[-—]\s*(.+)$', line, re.IGNORECASE)
+    if not match:
+        return None
+    
+    date_str = match.group(1).strip()
+    
+    # Must contain at least one: time format (HH:MM), Yesterday, Today, or a date slash
+    if not re.search(r'(\d{1,2}:\d{2}|yesterday|today|\d{1,2}/\d{1,2})', date_str, re.IGNORECASE):
+        return None
+        
+    now = datetime.now()
+    
+    # 1. MM/DD/YY, HH:MM AM/PM
+    m = re.search(r'(\d{1,2}/\d{1,2}/\d{2,4})', date_str)
+    if m:
+        dt_part = m.group(1)
+        try:
+            fmt = '%m/%d/%y' if len(dt_part.split('/')[-1]) == 2 else '%m/%d/%Y'
+            dt = datetime.strptime(dt_part, fmt)
+            return dt.strftime('%Y-%m-%d')
+        except ValueError:
+            pass
+            
+    # 2. Yesterday
+    if 'yesterday' in date_str.lower():
+        return (now - timedelta(days=1)).strftime('%Y-%m-%d')
+        
+    # 3. Today (implicit if just time or explicitly "Today")
+    return now.strftime('%Y-%m-%d')
+
 def parse_shorthand_time(time_str, ampm=None):
     """Convert '1230', '135', '9' into (hour, minute, exact_24h)."""
     if len(time_str) <= 2:
@@ -158,7 +190,7 @@ def has_non_repeating_events(cursor, user_id, target_date_str):
 
 def main():
     parser = argparse.ArgumentParser(description="Import discord log into calendar events.")
-    parser.add_argument('--date', default=datetime.now().strftime('%Y-%m-%d'), help="The target date (YYYY-MM-DD), defaults to today")
+    parser.add_argument('--date', default=None, help="The target date (YYYY-MM-DD), defaults to extracted date from log")
     parser.add_argument('--file', help="Path to the log file (reads from stdin if not provided)")
     parser.add_argument('--user-id', type=int, default=DEFAULT_USER_ID, help="User ID to import events for")
     parser.add_argument('--dry-run', action='store_true', help="Preview events without inserting")
@@ -173,11 +205,45 @@ def main():
         print("Reading from stdin (Press Ctrl+D to finish):")
         lines = sys.stdin.readlines()
 
+    # Find the last "New Messages" separator (at least 3 dashes)
+    last_dash_idx = -1
+    for i, line in enumerate(lines):
+        if re.search(r'[-—─]{3,}', line):
+            last_dash_idx = i
+
+    if last_dash_idx != -1:
+        # Search upwards for the nearest timestamp line
+        parsed_date = None
+        for j in range(last_dash_idx - 1, -1, -1):
+            prev_line = lines[j].strip()
+            parsed_date = parse_discord_date(prev_line)
+            if parsed_date:
+                break
+                
+        if parsed_date:
+            args.date = parsed_date
+            print(f"Detected new messages marker. Extracted start date: {args.date}")
+        
+        # Ignore all text above and including the dashes line
+        lines = lines[last_dash_idx + 1:]
+    else:
+        # If no dashes, find the first valid timestamp in the log
+        for line in lines:
+            parsed_date = parse_discord_date(line.strip())
+            if parsed_date:
+                args.date = parsed_date
+                print(f"No marker found. Extracted start date from first timestamp: {args.date}")
+                break
+
+    if not args.date:
+        print("Error: Could not extract a start date from the log, and no --date flag was provided.")
+        sys.exit(1)
+
     # Parse log lines
     activities = []
     for line in lines:
         line = line.strip()
-        if not line or line.startswith('zoe —') or line.startswith('zoe -'):
+        if not line or parse_discord_date(line):
             continue
         
         # Match standard line starting with 1-4 digits, optional am/pm
