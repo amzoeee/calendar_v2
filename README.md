@@ -1,161 +1,74 @@
-# Flask Calendar App
+# Calendar v2
 
-A Flask-based, multi-user calendar application with daily, weekly, and stats views and persistent event storage.
+A personal, self-hosted Flask calendar with daily/weekly views, tag-based time tracking, recurring events, and a CLI tool for bulk-importing activity logs.
 
 ## Setup
 
-1. **Clone or navigate to this directory**
-
-2. **Create a virtual environment (optional but recommended)**
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Set up environment variables**
-   Copy the example environment file:
-   ```bash
-   cp .env.example .env
-   ```
-   Open `.env` and replace the placeholder `SECRET_KEY` with a random string. You can generate a secure random string using:
-   ```bash
-   python3 -c "import secrets; print(secrets.token_hex(32))"
-   ```
-
-## Using the Application
-
-### Starting the App
-
-1. **Run the local server script**
-   ```bash
-   ./run_local.sh
-   ```
-   This starts the Flask server and displays your local IP address for network access.
-
-2. **Access the app**
-   - From this computer: `http://localhost:5002`
-   - From other devices on your network: `http://[your-ip]:5002`
-
-### First Time Setup
-
-1. **Create an account** - Navigate to the registration page and create a username/password
-2. **Login** - Use your credentials to access your personal calendar
-
-### Managing Events
-
-**Creating Events**
-- Click on any time slot in the daily or weekly view to create a new event
-- Fill in the title, select a tag, and set start/end times
-- Events can span multiple days
-
-**Editing Events**
-- Click on an existing event to edit its details
-- Modify title, tag, or times as needed
-
-**Deleting Events**
-- Click on an event and select the delete option to remove it
-
-### Views
-
-**Daily View** - See all events for a single day with hourly time slots
-**Weekly View** - View 7 days at once to see your week at a glance  
-**Stats View** - Visualize how you spend time across different tags with bar charts
-**Settings** - Manage your tags (add, edit, delete, reorder) and import calendar files
-
-### Tag Management
-
-1. Navigate to **Settings**
-2. **Add tags** - Create custom tags with names and colors
-3. **Edit tags** - Change tag names or colors
-4. **Reorder tags** - Drag and drop tags to reorder them
-5. **Delete tags** - Remove tags (events with that tag become untagged)
-
-### Importing Calendars
-
-1. Go to **Settings**
-2. Click **Import ICS File**
-3. Select a `.ics` file from Google Calendar or other calendar apps
-4. Choose a tag to assign to all imported events
-5. Events will be added to your calendar
-
-
-## Local Network Access
-
-The app is configured to be accessible from other devices on your local network (e.g., your phone, tablet, or other computers on the same WiFi).
-
-### Quick Start
-
-1. **Run the app**
-   ```bash
-   ./run_local.sh
-   ```
-   The script will display your local IP address and access URLs.
-
-2. **Access from other devices**
-   - On another device connected to the same WiFi network
-   - Open a browser and go to: `http://[YOUR_IP]:5002`
-   - Example: `http://192.168.1.100:5002`
-
-### Finding Your IP Address Manually
-
-If you need to find your local IP address manually:
-
-**macOS/Linux:**
 ```bash
-ifconfig | grep "inet " | grep -v 127.0.0.1
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Set SECRET_KEY in .env — generate one with:
+python3 -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-**Windows:**
+## Running
+
 ```bash
-ipconfig
+./run_local.sh
 ```
-Look for "IPv4 Address" under your active network adapter.
 
-### Troubleshooting
+Starts the server and prints your local IP. Access at `http://localhost:5002` (or `http://<your-ip>:5002` from other devices on the same network).
 
-- **Can't access from other devices?** Check that:
-  - Both devices are on the same WiFi network
-  - Your firewall isn't blocking port 5002
-  - You're using the correct IP address
-  
-- **Want external access (outside your network)?**
-  - Use ngrok: `brew install ngrok && ngrok http 5002`
-  - Or configure port forwarding on your router (more complex)
+## Features
+
+- **Daily & weekly views** — click any time slot to create an event
+- **Recurring events** — edit/delete a single instance or the whole series
+- **Tags** — color-coded categories; drag to reorder; stats view shows time breakdown per tag
+- **ICS import** — import from Google Calendar or any `.ics` file via Settings
+- **Multi-user** — separate accounts with login/registration
+
+## Log Importer (`import_log.py`)
+
+A CLI tool that parses a shorthand activity log and bulk-inserts events into the database.
+
+```
+python3 import_log.py [--file <path>] [--date <YYYY-MM-DD>] [--user-id <id>] [--dry-run] [--continue]
+```
+
+**Log format** — one activity per line, starting with a time in shorthand followed by the title:
+
+```
+900 Sleep
+1130 Breakfast
+1 Gym
+330pm Work
+```
+
+Times are resolved chronologically — no need to specify AM/PM unless ambiguous. The script auto-detects the date from Discord-style timestamps in the log, skips lines before the last `---` separator, predicts tags from past events, and avoids creating overlaps with existing events.
+
+| Flag | Description |
+|---|---|
+| `--file` | Path to log file (defaults to stdin) |
+| `--date` | Override the target date (`YYYY-MM-DD`) |
+| `--user-id` | User account to insert events for (default: 1) |
+| `--dry-run` | Preview without inserting |
+| `--continue` | Schedule after the latest existing event on that day |
 
 ## Project Structure
 
 ```
 calendar_v2/
-├── app.py              # Main Flask application
-├── database.py         # Database operations and schema
-├── requirements.txt    # Python dependencies
-├── run_local.sh        # Startup script for local network access
-├── .env                # Environment variables (SECRET_KEY, PORT)
-├── .env.example        # Template for environment variables
-├── scripts/            # Utility scripts
-│   ├── create_default_tags.py
-│   └── migrate_tags_manual.py
-├── utils/              # Utility modules
-│   ├── __init__.py
-│   └── ics_parser.py   # ICS file parser for imports
-├── templates/          # HTML templates
-│   ├── daily.html
-│   ├── weekly.html
-│   ├── stats.html
-│   └── settings.html
-├── static/             # CSS and static assets
-│   └── style.css
-└── calendar.db         # SQLite database (created on first run)
+├── app.py           # Flask routes and application logic
+├── database.py      # DB schema and operations
+├── import_log.py    # CLI log importer
+├── run_local.sh     # Startup script
+├── utils/
+│   └── ics_parser.py
+├── templates/       # HTML templates (daily, weekly, stats, settings)
+└── static/          # CSS and assets
 ```
 
-## Technologies Used
+## Stack
 
-- **Flask** - Python web framework
-- **SQLite** - Lightweight database for data persistence
-- **HTML/CSS** - Frontend with modern styling
-- **JavaScript** - Event editing functionality
+Flask · SQLite · Flask-Login · vanilla HTML/CSS/JS
