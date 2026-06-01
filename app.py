@@ -7,6 +7,7 @@ import os
 from dotenv import load_dotenv
 
 from utils import ics_parser, ics_exporter, recurring_events
+import import_log as log_importer
 
 # Load environment variables from .env file
 load_dotenv()
@@ -909,6 +910,74 @@ def export_ics():
     response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
     
     return response
+
+
+@app.route('/import_log/preview', methods=['POST'])
+@login_required
+def import_log_preview():
+    """Dry-run a Discord log: parse and return events as JSON without inserting."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    text = data.get('text', '').strip()
+    date_override = data.get('date') or None  # YYYY-MM-DD or None
+
+    if not text:
+        return jsonify({'error': 'Log text is empty'}), 400
+
+    try:
+        conn = database.get_db_connection()
+        cursor = conn.cursor()
+        events, date_used, warnings = log_importer.parse_log_text(
+            text, current_user.id, cursor, date_override=date_override
+        )
+        conn.close()
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 422
+    except Exception as e:
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
+    return jsonify({
+        'events': events,
+        'date_used': date_used,
+        'warnings': warnings,
+    })
+
+
+@app.route('/import_log/confirm', methods=['POST'])
+@login_required
+def import_log_confirm():
+    """Parse and insert a Discord log into the database."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    text = data.get('text', '').strip()
+    date_override = data.get('date') or None
+
+    if not text:
+        return jsonify({'error': 'Log text is empty'}), 400
+
+    try:
+        conn = database.get_db_connection()
+        cursor = conn.cursor()
+        events, date_used, warnings = log_importer.parse_log_text(
+            text, current_user.id, cursor, date_override=date_override
+        )
+        log_importer.insert_parsed_events(events, current_user.id, cursor)
+        conn.commit()
+        conn.close()
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 422
+    except Exception as e:
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
+    return jsonify({
+        'inserted': len(events),
+        'date_used': date_used,
+        'warnings': warnings,
+    })
 
 
 if __name__ == '__main__':

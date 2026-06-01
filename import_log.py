@@ -14,6 +14,9 @@ Flags:
   --user-id    (Optional) The numeric ID of the user account to insert events for (default is 1).
   --dry-run    (Optional) Previews the parsed events in the terminal without inserting them into the database.
   --continue   (Optional) If you already have events on the target day, use this flag to start scheduling immediately after your latest event.
+
+Programmatic API (used by the Flask web UI):
+  from import_log import parse_log_text, insert_parsed_events
 """
 
 import sqlite3
@@ -187,6 +190,122 @@ def has_non_repeating_events(cursor, user_id, target_date_str):
     """, (user_id, f"{target_date_str} 00:00:00", f"{target_date_str} 23:59:59", 
           f"{target_date_str} 00:00:00", f"{target_date_str} 23:59:59"))
     return cursor.fetchone()[0] > 0
+
+# ---------------------------------------------------------------------------
+# Programmatic API — called by the Flask web UI
+# ---------------------------------------------------------------------------
+
+def parse_log_text(text, user_id, cursor, date_override=None):
+    """Parse a raw log string and return a list of event dicts ready to insert.
+
+    Returns a tuple (events, date_used, warnings) where:
+      events    – list of {start, end, title, tag} dicts (datetimes as strings)
+      date_used – the YYYY-MM-DD string that was resolved
+      warnings  – list of human-readable warning strings
+    """
+    warnings = []
+    lines = text.splitlines(keepends=True)
+
+    # --- Detect separator and extract date ---
+    resolved_date = date_override
+    last_dash_idx = -1
+    for i, line in enumerate(lines):
+        if re.search(r'[-\u2014\u2500]{3,}', line):
+            last_dash_idx = i
+
+    if last_dash_idx != -1:
+        parsed_date = None
+        for j in range(last_dash_idx - 1, -1, -1):
+            prev_line = lines[j].strip()
+            parsed_date = parse_discord_date(prev_line)
+            if parsed_date:
+                break
+        if parsed_date and not resolved_date:
+            resolved_date = parsed_date
+            warnings.append(f"Detected separator; extracted date: {resolved_date}")
+        lines = lines[last_dash_idx + 1:]
+    else:
+        if not resolved_date:
+            for line in lines:
+                parsed_date = parse_discord_date(line.strip())
+                if parsed_date:
+                    resolved_date = parsed_date
+                    warnings.append(f"Extracted date from first timestamp: {resolved_date}")
+                    break
+
+    if not resolved_date:
+        raise ValueError("Could not extract a start date from the log. Provide one manually.")
+
+    # --- Parse activity lines ---
+    activities = []
+    for line in lines:
+        line = line.strip()
+        if not line or parse_discord_date(line):
+            continue
+        match = re.match(r'^(\d{1,4})\s*(am|pm)?\s+(.+)$', line, re.IGNORECASE)
+        if match:
+            time_str, ampm, title = match.group(1), match.group(2), match.group(3)
+            if parse_shorthand_time(time_str, ampm) is not None:
+                activities.append((time_str, ampm, title))
+
+    if not activities:
+        raise ValueError("No valid activities found in the log.")
+
+    # --- Resolve continue_flag ---
+    continue_flag = has_non_repeating_events(cursor, user_id, resolved_date)
+    if continue_flag:
+        warnings.append("Auto-enabled continue mode: existing events found on this day.")
+
+    base_time = get_last_event_end_time(cursor, user_id, resolved_date, continue_from_latest=continue_flag)
+    warnings.append(f"Scheduling starts after: {base_time.strftime('%Y-%m-%d %I:%M %p')}")
+
+    events = []
+    current_time = base_time
+
+    for time_str, ampm, title in activities:
+        hour, minute, exact_24h = parse_shorthand_time(time_str, ampm)
+        end_time = get_next_occurrence(current_time, hour, minute, exact_24h)
+        existing_events = get_existing_events_for_range(cursor, user_id, current_time, end_time)
+        start_time = current_time
+        for e in existing_events:
+            if e['start'] < end_time and e['end'] > start_time:
+                start_time = max(start_time, min(end_time, e['end']))
+
+        if start_time < end_time:
+            tag = predict_tag(cursor, title, user_id)
+            events.append({
+                'start': start_time.strftime('%Y-%m-%d %H:%M:%S'),
+                'end': end_time.strftime('%Y-%m-%d %H:%M:%S'),
+                'title': title,
+                'tag': tag or '',
+            })
+
+        current_time = end_time
+
+    return events, resolved_date, warnings
+
+
+def insert_parsed_events(events, user_id, cursor):
+    """Insert a list of event dicts (from parse_log_text) into the DB.
+
+    The cursor's connection must be committed by the caller.
+    """
+    for event in events:
+        cursor.execute("""
+            INSERT INTO events (start_datetime, end_datetime, title, description, tag, user_id)
+            VALUES (?, ?, ?, '', ?, ?)
+        """, (
+            event['start'],
+            event['end'],
+            event['title'],
+            event['tag'],
+            user_id,
+        ))
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point
+# ---------------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser(description="Import discord log into calendar events.")

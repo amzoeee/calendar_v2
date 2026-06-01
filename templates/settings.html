@@ -101,8 +101,175 @@
                             <button type="submit" class="btn btn-primary">Import ICS File</button>
                         </div>
                     </div>
-                </form>
+            </form>
             </section>
+
+            <section class="settings-section">
+                <h2>Import Discord Log</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                    Paste your Discord activity log below. The importer will auto-detect the date and
+                    schedule events using the same rules as the CLI tool.
+                </p>
+
+                <div class="form-row" style="gap: 0.5rem; align-items: flex-end; margin-bottom: 0.75rem;">
+                    <div class="form-group" style="width: 180px; margin-bottom: 0;">
+                        <label for="log-date-override">Date override <span style="font-weight:400; color: var(--text-secondary);">(optional)</span></label>
+                        <input type="date" id="log-date-override" class="form-control">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>&nbsp;</label>
+                        <button id="log-preview-btn" class="btn btn-primary" onclick="previewLog()">Preview</button>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 0.75rem;">
+                    <label for="log-text-input">Log text</label>
+                    <textarea id="log-text-input" class="form-control"
+                        style="width: 100%; min-height: 180px; font-family: monospace; font-size: 0.85rem; resize: vertical;"
+                        placeholder="Paste your Discord log here...&#10;&#10;Example:&#10;--- Today at 3:00 PM ---&#10;9 wake up&#10;930 emails&#10;11 standup&#10;1230 lunch"></textarea>
+                </div>
+
+                <div id="log-preview-area" style="display: none; margin-top: 0.75rem;">
+                    <div id="log-warnings" style="margin-bottom: 0.5rem;"></div>
+                    <div style="overflow-x: auto;">
+                        <table id="log-preview-table" style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border);">
+                                    <th style="text-align: left; padding: 0.4rem 0.75rem; color: var(--text-secondary); font-weight: 500;">Start</th>
+                                    <th style="text-align: left; padding: 0.4rem 0.75rem; color: var(--text-secondary); font-weight: 500;">End</th>
+                                    <th style="text-align: left; padding: 0.4rem 0.75rem; color: var(--text-secondary); font-weight: 500;">Tag</th>
+                                    <th style="text-align: left; padding: 0.4rem 0.75rem; color: var(--text-secondary); font-weight: 500;">Title</th>
+                                </tr>
+                            </thead>
+                            <tbody id="log-preview-tbody"></tbody>
+                        </table>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 1rem; margin-top: 0.75rem;">
+                        <button id="log-confirm-btn" class="btn btn-primary" onclick="confirmLog()">Confirm Import</button>
+                        <span id="log-status" style="font-size: 0.875rem; color: var(--text-secondary);"></span>
+                    </div>
+                </div>
+
+                <div id="log-error" style="display: none; color: var(--danger, #ef4444); margin-top: 0.5rem; font-size: 0.875rem;"></div>
+            </section>
+
+            <script>
+                let _logPreviewData = null;
+
+                function fmt(dtStr) {
+                    // "2026-06-01 09:30:00" -> "Jun 1, 9:30 AM"
+                    const d = new Date(dtStr.replace(' ', 'T'));
+                    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                }
+
+                async function previewLog() {
+                    const text = document.getElementById('log-text-input').value.trim();
+                    const dateVal = document.getElementById('log-date-override').value || null;
+                    const errDiv = document.getElementById('log-error');
+                    const previewArea = document.getElementById('log-preview-area');
+                    const statusEl = document.getElementById('log-status');
+
+                    errDiv.style.display = 'none';
+                    previewArea.style.display = 'none';
+                    statusEl.textContent = '';
+                    _logPreviewData = null;
+
+                    if (!text) { errDiv.textContent = 'Paste some log text first.'; errDiv.style.display = 'block'; return; }
+
+                    document.getElementById('log-preview-btn').disabled = true;
+                    document.getElementById('log-preview-btn').textContent = 'Parsing...';
+
+                    try {
+                        const res = await fetch('/import_log/preview', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ text, date: dateVal }),
+                        });
+                        const data = await res.json();
+
+                        if (!res.ok) {
+                            errDiv.textContent = data.error || 'Unknown error';
+                            errDiv.style.display = 'block';
+                            return;
+                        }
+
+                        _logPreviewData = data;
+
+                        // Warnings
+                        const warnDiv = document.getElementById('log-warnings');
+                        if (data.warnings && data.warnings.length) {
+                            warnDiv.innerHTML = data.warnings.map(w =>
+                                `<div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.2rem;">&#9432; ${w}</div>`
+                            ).join('');
+                        } else {
+                            warnDiv.innerHTML = '';
+                        }
+
+                        // Table
+                        const tbody = document.getElementById('log-preview-tbody');
+                        tbody.innerHTML = data.events.map(ev => `
+                            <tr style="border-bottom: 1px solid var(--border);">
+                                <td style="padding: 0.4rem 0.75rem;">${fmt(ev.start)}</td>
+                                <td style="padding: 0.4rem 0.75rem;">${fmt(ev.end)}</td>
+                                <td style="padding: 0.4rem 0.75rem; color: var(--text-secondary);">${ev.tag || '—'}</td>
+                                <td style="padding: 0.4rem 0.75rem;">${ev.title}</td>
+                            </tr>
+                        `).join('');
+
+                        statusEl.textContent = `${data.events.length} event(s) parsed for ${data.date_used}`;
+                        previewArea.style.display = 'block';
+                        document.getElementById('log-confirm-btn').disabled = false;
+
+                    } catch (e) {
+                        errDiv.textContent = 'Network error: ' + e.message;
+                        errDiv.style.display = 'block';
+                    } finally {
+                        document.getElementById('log-preview-btn').disabled = false;
+                        document.getElementById('log-preview-btn').textContent = 'Preview';
+                    }
+                }
+
+                async function confirmLog() {
+                    if (!_logPreviewData) return;
+                    const text = document.getElementById('log-text-input').value.trim();
+                    const dateVal = document.getElementById('log-date-override').value || null;
+                    const statusEl = document.getElementById('log-status');
+                    const errDiv = document.getElementById('log-error');
+
+                    document.getElementById('log-confirm-btn').disabled = true;
+                    document.getElementById('log-confirm-btn').textContent = 'Importing...';
+                    errDiv.style.display = 'none';
+
+                    try {
+                        const res = await fetch('/import_log/confirm', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ text, date: dateVal }),
+                        });
+                        const data = await res.json();
+
+                        if (!res.ok) {
+                            errDiv.textContent = data.error || 'Import failed';
+                            errDiv.style.display = 'block';
+                            document.getElementById('log-confirm-btn').disabled = false;
+                            document.getElementById('log-confirm-btn').textContent = 'Confirm Import';
+                            return;
+                        }
+
+                        statusEl.textContent = `Done — ${data.inserted} event(s) imported for ${data.date_used}.`;
+                        statusEl.style.color = 'var(--success, #22c55e)';
+                        document.getElementById('log-confirm-btn').textContent = 'Imported';
+                        _logPreviewData = null;
+
+                    } catch (e) {
+                        errDiv.textContent = 'Network error: ' + e.message;
+                        errDiv.style.display = 'block';
+                        document.getElementById('log-confirm-btn').disabled = false;
+                        document.getElementById('log-confirm-btn').textContent = 'Confirm Import';
+                    }
+                }
+            </script>
+
 
             <section class="settings-section">
                 <h2>Export Calendar</h2>
