@@ -30,5 +30,8 @@ Thumbs.db
 # Data
 calendar.db
 
+# Backup files
+*.bak
+
 # Environment variables
 .env
