@@ -409,6 +409,13 @@ def delete_event(event_id):
     conn.commit()
     conn.close()
 
+def get_event_by_id(event_id):
+    """Get a single event by ID."""
+    conn = get_db_connection()
+    event = conn.execute('SELECT * FROM events WHERE id = ?', (event_id,)).fetchone()
+    conn.close()
+    return dict(event) if event else None
+
 def bulk_add_events(events, tag=''):
     """
     Add multiple events to the database in a single transaction.

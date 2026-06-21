@@ -395,6 +395,31 @@ def delete_event(event_id):
         return redirect(url_for('weekly_view', date=date))
     return redirect(url_for('daily_view', date=date))
 
+@app.route('/copy_event/<int:event_id>', methods=['POST'])
+@login_required
+def copy_event(event_id):
+    """Copy/duplicate an existing event."""
+    date = request.form.get('date')
+    view_type = request.form.get('view', 'daily')
+    
+    event = database.get_event_by_id(event_id)
+    if event and event['user_id'] == current_user.id:
+        database.add_event(
+            start_datetime=event['start_datetime'],
+            end_datetime=event['end_datetime'],
+            title=event['title'],
+            description=event['description'] or '',
+            tag=event['tag'] or '',
+            user_id=current_user.id
+        )
+        flash('Event copied successfully', 'success')
+    else:
+        flash('Event not found or access denied', 'error')
+        
+    if view_type == 'weekly':
+        return redirect(url_for('weekly_view', date=date))
+    return redirect(url_for('daily_view', date=date))
+
 @app.route('/delete_recurring_series/<recurrence_id>', methods=['POST'])
 @login_required
 def delete_recurring_series(recurrence_id):

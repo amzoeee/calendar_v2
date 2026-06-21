@@ -283,6 +283,12 @@
                                         style="width: 100%; margin-top: 4px;">Delete</button>
                                 </form>
                                 {% endif %}
+                                <form action="{{ url_for('copy_event', event_id=event.id) }}" method="POST"
+                                    onclick="event.stopPropagation();" style="margin-top: 4px;">
+                                    <input type="hidden" name="date" value="{{ date }}">
+                                    <input type="hidden" name="view" value="daily">
+                                    <button type="submit" class="btn btn-sm" style="width: 100%;">Copy Event</button>
+                                </form>
                             </div>
                         </div>
                         {% endfor %}
