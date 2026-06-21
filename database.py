@@ -90,6 +90,7 @@ def init_db():
                 color TEXT NOT NULL,
                 order_index INTEGER NOT NULL,
                 user_id INTEGER NOT NULL,
+                is_archived INTEGER NOT NULL DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id),
                 UNIQUE(name, user_id)
@@ -106,6 +107,13 @@ def init_db():
         tag_columns = [col[1] for col in cursor.fetchall()]
         if 'user_id' not in tag_columns:
             migrate_tags_to_multiuser(conn)
+            # Recheck columns after migration
+            cursor.execute("PRAGMA table_info(tags)")
+            tag_columns = [col[1] for col in cursor.fetchall()]
+            
+        if 'is_archived' not in tag_columns:
+            cursor.execute("ALTER TABLE tags ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0")
+            conn.commit()
     
     conn.close()
 
@@ -629,6 +637,17 @@ def reorder_tags(tag_ids):
             (index + 1, tag_id)
         )
     
+    conn.commit()
+    conn.close()
+
+def archive_tag(tag_id, is_archived=True):
+    """Archive or unarchive a tag."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        'UPDATE tags SET is_archived = ? WHERE id = ?',
+        (1 if is_archived else 0, tag_id)
+    )
     conn.commit()
     conn.close()
 

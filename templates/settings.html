@@ -6,6 +6,53 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings - Calendar</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .archived-tags-details {
+            margin-bottom: 2rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+        .archived-tags-details[open] {
+            border-color: var(--accent);
+        }
+        .archived-tags-details summary {
+            padding: 0.75rem 1rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-tertiary);
+            outline: none;
+        }
+        .archived-tags-details summary::-webkit-details-marker {
+            display: none;
+        }
+        .archived-tags-details summary::marker {
+            display: none;
+        }
+        .archived-tags-details summary:hover {
+            background: var(--bg-primary);
+        }
+        .archived-tags-details .dropdown-arrow {
+            transition: transform 0.2s ease;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .archived-tags-details[open] .dropdown-arrow {
+            transform: rotate(180deg);
+        }
+        .archived-tag-list {
+            padding: 0.75rem 1rem;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+        }
+    </style>
 </head>
 
 <body>
@@ -42,7 +89,7 @@
 
                 <!-- Tag List -->
                 <div id="tag-list" class="tag-list">
-                    {% for tag in tags %}
+                    {% for tag in tags if not tag.is_archived %}
                     <div class="tag-item" draggable="true" data-tag-id="{{ tag.id }}">
                         <span class="drag-handle">&#8942;&#8942;</span>
                         <span class="tag-color-preview" style="background-color: {{ tag.color }};"></span>
@@ -50,12 +97,41 @@
                         <div class="tag-actions">
                             <button class="btn-small"
                                 onclick="editTag({{ tag.id }}, '{{ tag.name }}', '{{ tag.color }}')">Edit</button>
+                            <button type="button" class="btn-small"
+                                onclick="archiveTag({{ tag.id }}, '{{ tag.name }}')">Archive</button>
                             <button type="button" class="btn-small btn-danger"
                                 onclick="deleteTag({{ tag.id }}, '{{ tag.name }}')">Delete</button>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
+
+                <!-- Archived Tags Dropdown -->
+                <details class="archived-tags-details">
+                    <summary>
+                        <span>Archived Tags</span>
+                        <span class="dropdown-arrow">&#9660;</span>
+                    </summary>
+                    <div class="archived-tag-list">
+                        {% set archived_tags = tags | selectattr('is_archived', 'equalto', 1) | list %}
+                        {% if archived_tags %}
+                            {% for tag in archived_tags %}
+                            <div class="tag-item archived" data-tag-id="{{ tag.id }}" style="cursor: default; opacity: 0.85; display: flex; align-items: center; gap: 1rem; padding: 0.75rem; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.5rem;">
+                                <span class="tag-color-preview" style="background-color: {{ tag.color }};"></span>
+                                <span class="tag-name" style="text-decoration: line-through; color: var(--text-secondary);">{{ tag.name }}</span>
+                                <div class="tag-actions">
+                                    <button type="button" class="btn-small"
+                                        onclick="unarchiveTag({{ tag.id }}, '{{ tag.name }}')">Unarchive</button>
+                                    <button type="button" class="btn-small btn-danger"
+                                        onclick="deleteTag({{ tag.id }}, '{{ tag.name }}')">Delete</button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p style="color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 1rem 0; font-family: inherit;">No archived tags.</p>
+                        {% endif %}
+                    </div>
+                </details>
 
                 <!-- Add Tag Form -->
                 <div class="add-tag-form">
@@ -91,7 +167,7 @@
                             <label for="import_tag">Assign Tag</label>
                             <select id="import_tag" name="import_tag" class="form-control">
                                 <option value="">No Tag</option>
-                                {% for tag in tags %}
+                                {% for tag in tags if not tag.is_archived %}
                                 <option value="{{ tag.name }}">{{ tag.name }}</option>
                                 {% endfor %}
                             </select>
@@ -387,10 +463,30 @@
                 });
         }
 
+        function archiveTag(tagId, tagName) {
+            if (confirm(`Archive tag "${tagName}"?\n\nYou will not be able to assign this tag to new events, but it will still display on the calendar.`)) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `/settings/tags/${tagId}/archive`;
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        function unarchiveTag(tagId, tagName) {
+            if (confirm(`Unarchive tag "${tagName}"?`)) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `/settings/tags/${tagId}/unarchive`;
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
         // Drag and Drop Functionality
         let draggedElement = null;
 
-        document.querySelectorAll('.tag-item').forEach(item => {
+        document.querySelectorAll('#tag-list .tag-item').forEach(item => {
             item.addEventListener('dragstart', function (e) {
                 draggedElement = this;
                 this.classList.add('dragging');
@@ -433,7 +529,7 @@
         }
 
         function saveTagOrder() {
-            const tagItems = document.querySelectorAll('.tag-item');
+            const tagItems = document.querySelectorAll('#tag-list .tag-item');
             const tagIds = Array.from(tagItems).map(item => parseInt(item.dataset.tagId));
 
             fetch('/settings/tags/reorder', {

@@ -126,10 +126,12 @@ def predict_tag(cursor, title, user_id):
     search_title = re.sub(r'^\[.*?\]\s*', '', title).strip()
     
     cursor.execute("""
-        SELECT tag 
-        FROM events 
-        WHERE user_id = ? AND lower(title) = ? AND tag IS NOT NULL AND tag != ''
-        ORDER BY start_datetime DESC 
+        SELECT e.tag 
+        FROM events e
+        LEFT JOIN tags t ON e.tag = t.name AND t.user_id = e.user_id
+        WHERE e.user_id = ? AND lower(e.title) = ? AND e.tag IS NOT NULL AND e.tag != ''
+          AND (t.is_archived IS NULL OR t.is_archived = 0)
+        ORDER BY e.start_datetime DESC 
         LIMIT 1
     """, (user_id, search_title.lower()))
     row = cursor.fetchone()

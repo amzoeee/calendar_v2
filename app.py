@@ -744,6 +744,28 @@ def delete_tag_route(tag_id):
     
     return redirect(url_for('settings_view'))
 
+@app.route('/settings/tags/<int:tag_id>/archive', methods=['POST'])
+@login_required
+def archive_tag_route(tag_id):
+    """Archive a tag"""
+    try:
+        database.archive_tag(tag_id, is_archived=True)
+        flash('Tag archived successfully!', 'success')
+    except Exception as e:
+        flash(str(e), 'error')
+    return redirect(url_for('settings_view'))
+
+@app.route('/settings/tags/<int:tag_id>/unarchive', methods=['POST'])
+@login_required
+def unarchive_tag_route(tag_id):
+    """Unarchive a tag"""
+    try:
+        database.archive_tag(tag_id, is_archived=False)
+        flash('Tag unarchived successfully!', 'success')
+    except Exception as e:
+        flash(str(e), 'error')
+    return redirect(url_for('settings_view'))
+
 @app.route('/settings/tags/reorder', methods=['POST'])
 def reorder_tags_route():
     """Reorder tags"""

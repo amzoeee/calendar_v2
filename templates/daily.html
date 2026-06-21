@@ -74,7 +74,7 @@
                         <label for="import_tag">Tag for All Events</label>
                         <select id="import_tag" name="import_tag">
                             <option value="">None</option>
-                            {% for tag in tags %}
+                            {% for tag in tags if not tag.is_archived %}
                             <option value="{{ tag.name }}">{{ tag.name }}</option>
                             {% endfor %}
                         </select>
@@ -121,7 +121,7 @@
                                     style="width: 20px; height: 20px; border-radius: 50%; background-color: transparent; border: 2px solid var(--border); flex-shrink: 0; align-self: center; display: inline-block;"></span>
                                 <select id="tag" name="tag">
                                     <option value="">None</option>
-                                    {% for tag in tags %}
+                                    {% for tag in tags if not tag.is_archived %}
                                     <option value="{{ tag.name }}" data-color="{{ tag.color }}">{{ tag.name }}</option>
                                     {% endfor %}
                                 </select>
@@ -230,11 +230,13 @@
                                             style="width: 20px; height: 20px; border-radius: 50%; background-color: {% if event.tag %}{{ tags|selectattr('name', 'equalto', event.tag)|map(attribute='color')|first|default('#6b7280') }}{% else %}transparent{% endif %}; border: 2px solid var(--border); flex-shrink: 0; align-self: center; display: inline-block;"></span>
                                         <select name="tag" class="edit-tag-select">
                                             <option value="">None</option>
-                                            {% for tag in tags %}
-                                            <option value="{{ tag.name }}" data-color="{{ tag.color }}" {% if
-                                                tag.name==event.tag %}selected{% endif %}>
-                                                {{ tag.name }}</option>
-                                            {% endfor %}
+                                             {% for tag in tags %}
+                                             {% if not tag.is_archived or tag.name == event.tag %}
+                                             <option value="{{ tag.name }}" data-color="{{ tag.color }}" {% if
+                                                 tag.name==event.tag %}selected{% endif %}>
+                                                 {{ tag.name }}</option>
+                                             {% endif %}
+                                             {% endfor %}
                                         </select>
                                     </div>
 
