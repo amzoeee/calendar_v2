@@ -843,3 +843,74 @@ body {
     border-color: #dc2626;
     color: #fecaca;
 }
+
+.event-block.ghost-event {
+    font-style: italic;
+    opacity: 0.45;
+}
+
+.pending-banner {
+    background: rgba(36, 36, 36, 0.85);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.pending-banner-text {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.pending-banner-text strong {
+    color: #ffb84d; /* highlighted warm accent for attention */
+}
+
+.pending-banner-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.date-override-form {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--bg-primary);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+}
+
+.date-override-form label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.date-override-form input[type="date"] {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    outline: none;
+    font-family: inherit;
+    padding: 0;
+    width: 125px;
+}
+
+.date-override-form button {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.8rem;
+}

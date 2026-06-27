@@ -91,6 +91,29 @@
         </div>
 
         <main class="calendar-content">
+            {% if pending_count > 0 %}
+            <div class="pending-banner">
+                <div class="pending-banner-text">
+                    <span>You have <strong>{{ pending_count }}</strong> pending event(s) staged on your calendar.</span>
+                </div>
+                <div class="pending-banner-actions">
+                    <form action="{{ url_for('import_log_approve_all') }}" method="POST" style="margin: 0;" onsubmit="return confirm('Approve all pending events?');">
+                        <button type="submit" class="btn btn-primary btn-sm">Approve All</button>
+                    </form>
+
+                    <form action="{{ url_for('import_log_override_date') }}" method="POST" class="date-override-form" style="margin: 0;">
+                        <label for="override-new-date">Target Date:</label>
+                        <input type="date" id="override-new-date" name="new_date" required value="{{ sunday_date }}">
+                        <button type="submit" class="btn btn-sm">Change Date</button>
+                    </form>
+
+                    <form action="{{ url_for('import_log_discard_all') }}" method="POST" style="margin: 0;" onsubmit="return confirm('Discard all pending events? This cannot be undone.');">
+                        <button type="submit" class="btn btn-danger btn-sm">Discard All</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
             <section class="timeline-section">
                 <div class="timeline-header"
                     style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
@@ -152,7 +175,7 @@
                                     {% set width_percent = (100 / event.get('overlap_total', 1)) %}
                                     {% set left_percent = (event.get('overlap_column', 0) * width_percent) %}
 
-                                    <div class="event-block" style="top: {{ event.start_minutes }}px; 
+                                    <div class="event-block {% if event.is_pending %}ghost-event{% endif %}" style="top: {{ event.start_minutes }}px; 
                                                     height: {{ event.duration }}px;
                                                     left: {{ left_percent }}%;
                                                     width: calc({{ width_percent }}% - 2px);
@@ -165,8 +188,7 @@
 
                                         <div class="event-block-content">
                                             <span class="event-title">{{ event.title }}</span>
-                                            <span class="event-time">, {{ event.start_time }} - {{ event.end_time
-                                                }}</span>
+                                            <span class="event-time">, {{ event.start_time }} - {{ event.end_time }}</span>
                                         </div>
 
                                         <div class="event-edit-overlay" id="edit-overlay-{{ event.id }}"

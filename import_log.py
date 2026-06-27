@@ -151,6 +151,7 @@ def get_last_event_end_time(cursor, user_id, target_date_str, continue_from_late
         WHERE user_id = ? AND start_datetime < ?
         AND (recurrence_id IS NULL OR recurrence_id = '')
         AND (rrule IS NULL OR rrule = '')
+        AND is_pending = 0
         ORDER BY end_datetime DESC 
         LIMIT 1
     """, (user_id, limit_date_str))
@@ -175,6 +176,7 @@ def get_existing_events_for_range(cursor, user_id, start_dt, end_dt):
         FROM events 
         WHERE user_id = ? 
         AND ((start_datetime >= ? AND start_datetime <= ?) OR (end_datetime > ? AND end_datetime <= ?))
+        AND is_pending = 0
         ORDER BY start_datetime
     """, (user_id, start_str, end_str, start_str, end_str))
     return [{'start': datetime.strptime(r[0], '%Y-%m-%d %H:%M:%S'),
@@ -189,9 +191,67 @@ def has_non_repeating_events(cursor, user_id, target_date_str):
         AND ((start_datetime >= ? AND start_datetime <= ?) OR (end_datetime > ? AND end_datetime <= ?))
         AND (recurrence_id IS NULL OR recurrence_id = '')
         AND (rrule IS NULL OR rrule = '')
+        AND is_pending = 0
     """, (user_id, f"{target_date_str} 00:00:00", f"{target_date_str} 23:59:59", 
           f"{target_date_str} 00:00:00", f"{target_date_str} 23:59:59"))
     return cursor.fetchone()[0] > 0
+
+def recalculate_pending_events_date(cursor, user_id, new_date_str):
+    """Recalculate start and end datetimes for all pending events for the user on a new date.
+    
+    This runs the chronological scheduling logic on the new target date, avoiding overlaps
+    with existing non-pending events and respecting the continue mode logic.
+    User edits to names, tags, descriptions, etc., are preserved.
+    """
+    cursor.execute("""
+        SELECT id, start_datetime, end_datetime, title, description, tag 
+        FROM events 
+        WHERE user_id = ? AND is_pending = 1
+        ORDER BY start_datetime
+    """, (user_id,))
+    pending_events = cursor.fetchall()
+    if not pending_events:
+        return
+    
+    continue_flag = has_non_repeating_events(cursor, user_id, new_date_str)
+    base_time = get_last_event_end_time(cursor, user_id, new_date_str, continue_from_latest=continue_flag)
+    if not continue_flag:
+        target_midnight = datetime.strptime(new_date_str, '%Y-%m-%d')
+        if base_time < target_midnight:
+            base_time = target_midnight
+    current_time = base_time
+    
+    for pev in pending_events:
+        pev_id, start_dt_str, end_dt_str, title, description, tag = pev
+        
+        # Parse original end time to extract hour/minute
+        orig_end = datetime.strptime(end_dt_str, '%Y-%m-%d %H:%M:%S')
+        hour = orig_end.hour
+        minute = orig_end.minute
+        
+        # Calculate new end time on/after current_time
+        # Since we know the exact 24-hour time of the original event, exact_24h is hour
+        end_time = get_next_occurrence(current_time, hour, minute, exact_24h=hour)
+        
+        # Fetch overlapping confirmed events on the new date and slide the start time forward if necessary
+        existing_events = get_existing_events_for_range(cursor, user_id, current_time, end_time)
+        start_time = current_time
+        for e in existing_events:
+            if e['start'] < end_time and e['end'] > start_time:
+                start_time = max(start_time, min(end_time, e['end']))
+        
+        # Update the pending event's datetimes in database
+        cursor.execute("""
+            UPDATE events 
+            SET start_datetime = ?, end_datetime = ?
+            WHERE id = ?
+        """, (
+            start_time.strftime('%Y-%m-%d %H:%M:%S'),
+            end_time.strftime('%Y-%m-%d %H:%M:%S'),
+            pev_id
+        ))
+        
+        current_time = end_time
 
 # ---------------------------------------------------------------------------
 # Programmatic API — called by the Flask web UI
@@ -259,6 +319,10 @@ def parse_log_text(text, user_id, cursor, date_override=None):
         warnings.append("Auto-enabled continue mode: existing events found on this day.")
 
     base_time = get_last_event_end_time(cursor, user_id, resolved_date, continue_from_latest=continue_flag)
+    if not continue_flag:
+        target_midnight = datetime.strptime(resolved_date, '%Y-%m-%d')
+        if base_time < target_midnight:
+            base_time = target_midnight
     warnings.append(f"Scheduling starts after: {base_time.strftime('%Y-%m-%d %I:%M %p')}")
 
     events = []
@@ -287,21 +351,22 @@ def parse_log_text(text, user_id, cursor, date_override=None):
     return events, resolved_date, warnings
 
 
-def insert_parsed_events(events, user_id, cursor):
+def insert_parsed_events(events, user_id, cursor, is_pending=0):
     """Insert a list of event dicts (from parse_log_text) into the DB.
 
     The cursor's connection must be committed by the caller.
     """
     for event in events:
         cursor.execute("""
-            INSERT INTO events (start_datetime, end_datetime, title, description, tag, user_id)
-            VALUES (?, ?, ?, '', ?, ?)
+            INSERT INTO events (start_datetime, end_datetime, title, description, tag, user_id, is_pending)
+            VALUES (?, ?, ?, '', ?, ?, ?)
         """, (
             event['start'],
             event['end'],
             event['title'],
             event['tag'],
             user_id,
+            is_pending
         ))
 
 

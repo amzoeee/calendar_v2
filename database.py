@@ -58,6 +58,15 @@ def init_db():
         if 'recurrence_id' not in columns:
             print("Adding recurring events support...")
             migrate_to_recurring_events(conn)
+            # Refresh column list after migration
+            cursor.execute("PRAGMA table_info(events)")
+            columns = [col[1] for col in cursor.fetchall()]
+        
+        # Check if we need to add is_pending column
+        if 'is_pending' not in columns:
+            print("Adding is_pending support...")
+            cursor.execute("ALTER TABLE events ADD COLUMN is_pending INTEGER NOT NULL DEFAULT 0")
+            conn.commit()
     else:
         # Create new schema with user_id
         cursor.execute('''
@@ -72,6 +81,7 @@ def init_db():
                 recurrence_id TEXT,
                 rrule TEXT,
                 original_start TEXT,
+                is_pending INTEGER NOT NULL DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
@@ -359,7 +369,7 @@ def get_events_by_date(date, user_id=None):
     conn.close()
     return events
 
-def add_event(start_datetime, end_datetime, title, description='', tag='', user_id=None, rrule=None, recurrence_id=None):
+def add_event(start_datetime, end_datetime, title, description='', tag='', user_id=None, rrule=None, recurrence_id=None, is_pending=0):
     """Add a new event to the database.
     
     Args:
@@ -371,6 +381,7 @@ def add_event(start_datetime, end_datetime, title, description='', tag='', user_
         user_id: User ID
         rrule: Optional RRULE string for recurring events
         recurrence_id: Optional recurrence ID for linking recurring instances
+        is_pending: Whether the event is pending/ghost (default 0)
     
     Returns:
         event_id: ID of the created event
@@ -383,9 +394,9 @@ def add_event(start_datetime, end_datetime, title, description='', tag='', user_
     
     cursor.execute(
         '''INSERT INTO events (start_datetime, end_datetime, title, description, tag, user_id, 
-           recurrence_id, rrule, original_start) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-        (start_datetime, end_datetime, title, description, tag, user_id, recurrence_id, rrule, original_start)
+           recurrence_id, rrule, original_start, is_pending) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+        (start_datetime, end_datetime, title, description, tag, user_id, recurrence_id, rrule, original_start, is_pending)
     )
     conn.commit()
     event_id = cursor.lastrowid
@@ -487,7 +498,7 @@ def get_tag_hours_for_week(start_date, end_date, user_id):
     cursor.execute('''
         SELECT id, start_datetime, end_datetime, tag
         FROM events
-        WHERE user_id = ? AND start_datetime < ? AND end_datetime > ?
+        WHERE user_id = ? AND start_datetime < ? AND end_datetime > ? AND is_pending = 0
         ORDER BY start_datetime
     ''', (user_id, end_date, start_date))
     
@@ -757,13 +768,13 @@ def get_events_by_tag(user_id, tag_id=None):
     if tag_id:
         events = conn.execute('''
             SELECT * FROM events 
-            WHERE user_id = ? AND tag = ?
+            WHERE user_id = ? AND tag = ? AND is_pending = 0
             ORDER BY start_datetime
         ''', (user_id, tag_id)).fetchall()
     else:
         events = conn.execute('''
             SELECT * FROM events 
-            WHERE user_id = ?
+            WHERE user_id = ? AND is_pending = 0
             ORDER BY start_datetime
         ''', (user_id,)).fetchall()
     

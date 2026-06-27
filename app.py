@@ -34,6 +34,19 @@ def load_user(user_id):
         return User(user_data['id'], user_data['username'])
     return None
 
+@app.context_processor
+def inject_pending_count():
+    if current_user and current_user.is_authenticated:
+        try:
+            conn = database.get_db_connection()
+            row = conn.execute('SELECT COUNT(*) FROM events WHERE user_id = ? AND is_pending = 1', (current_user.id,)).fetchone()
+            count = row[0] if row else 0
+            conn.close()
+            return {'pending_count': count}
+        except Exception:
+            return {'pending_count': 0}
+    return {'pending_count': 0}
+
 
 def load_tags(user_id):
     """Load tag configuration from database"""
@@ -959,43 +972,10 @@ def export_ics():
     return response
 
 
-@app.route('/import_log/preview', methods=['POST'])
+@app.route('/import_log/stage', methods=['POST'])
 @login_required
-def import_log_preview():
-    """Dry-run a Discord log: parse and return events as JSON without inserting."""
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'No data provided'}), 400
-
-    text = data.get('text', '').strip()
-    date_override = data.get('date') or None  # YYYY-MM-DD or None
-
-    if not text:
-        return jsonify({'error': 'Log text is empty'}), 400
-
-    try:
-        conn = database.get_db_connection()
-        cursor = conn.cursor()
-        events, date_used, warnings = log_importer.parse_log_text(
-            text, current_user.id, cursor, date_override=date_override
-        )
-        conn.close()
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 422
-    except Exception as e:
-        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
-
-    return jsonify({
-        'events': events,
-        'date_used': date_used,
-        'warnings': warnings,
-    })
-
-
-@app.route('/import_log/confirm', methods=['POST'])
-@login_required
-def import_log_confirm():
-    """Parse and insert a Discord log into the database."""
+def import_log_stage():
+    """Parse and insert a Discord log into the database as pending."""
     data = request.get_json()
     if not data:
         return jsonify({'error': 'No data provided'}), 400
@@ -1009,10 +989,17 @@ def import_log_confirm():
     try:
         conn = database.get_db_connection()
         cursor = conn.cursor()
+        
+        # Check if there are already pending events
+        row = cursor.execute('SELECT COUNT(*) FROM events WHERE user_id = ? AND is_pending = 1', (current_user.id,)).fetchone()
+        if row and row[0] > 0:
+            conn.close()
+            return jsonify({'error': 'You already have pending events. Please approve or clear them first.'}), 400
+
         events, date_used, warnings = log_importer.parse_log_text(
             text, current_user.id, cursor, date_override=date_override
         )
-        log_importer.insert_parsed_events(events, current_user.id, cursor)
+        log_importer.insert_parsed_events(events, current_user.id, cursor, is_pending=1)
         conn.commit()
         conn.close()
     except ValueError as e:
@@ -1021,10 +1008,76 @@ def import_log_confirm():
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
     return jsonify({
+        'success': True,
         'inserted': len(events),
         'date_used': date_used,
         'warnings': warnings,
     })
+
+
+@app.route('/import_log/approve_all', methods=['POST'])
+@login_required
+def import_log_approve_all():
+    """Approve all pending events by setting is_pending = 0."""
+    try:
+        conn = database.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE events SET is_pending = 0 WHERE user_id = ? AND is_pending = 1', (current_user.id,))
+        count = cursor.rowcount
+        conn.commit()
+        conn.close()
+        if count > 0:
+            flash(f'Successfully approved {count} events!', 'success')
+        else:
+            flash('No pending events to approve.', 'info')
+    except Exception as e:
+        flash(f'Error approving events: {str(e)}', 'error')
+    
+    # Try to redirect to referring page
+    return redirect(request.referrer or url_for('daily_view', date=datetime.now().strftime('%Y-%m-%d')))
+
+
+@app.route('/import_log/discard_all', methods=['POST'])
+@login_required
+def import_log_discard_all():
+    """Discard all pending events by deleting them."""
+    try:
+        conn = database.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM events WHERE user_id = ? AND is_pending = 1', (current_user.id,))
+        count = cursor.rowcount
+        conn.commit()
+        conn.close()
+        if count > 0:
+            flash(f'Successfully discarded {count} pending events.', 'success')
+        else:
+            flash('No pending events to discard.', 'info')
+    except Exception as e:
+        flash(f'Error discarding events: {str(e)}', 'error')
+        
+    return redirect(request.referrer or url_for('daily_view', date=datetime.now().strftime('%Y-%m-%d')))
+
+
+@app.route('/import_log/override_date', methods=['POST'])
+@login_required
+def import_log_override_date():
+    """Override the date of pending events, recalculating their times and shifting them to a new date."""
+    new_date = request.form.get('new_date')
+    if not new_date:
+        flash('New date is required.', 'error')
+        return redirect(request.referrer or url_for('daily_view', date=datetime.now().strftime('%Y-%m-%d')))
+        
+    try:
+        conn = database.get_db_connection()
+        cursor = conn.cursor()
+        log_importer.recalculate_pending_events_date(cursor, current_user.id, new_date)
+        conn.commit()
+        conn.close()
+        flash(f'Successfully updated pending events to {new_date}!', 'success')
+    except Exception as e:
+        flash(f'Error updating date: {str(e)}', 'error')
+        
+    return redirect(url_for('daily_view', date=new_date))
 
 
 if __name__ == '__main__':
